@@ -1,5 +1,4 @@
-// GameManager.js - game state, turns, move validation
-import { performAIMove } from './AI.js';
+// GameManager.js - game state, turns, move validation (AI handled internally)
 
 export class GameManager {
   constructor(board, ui, scene, options = {}) {
@@ -10,8 +9,8 @@ export class GameManager {
       1: { id: 1, name: 'Republicans', color: 0xd94343, score: 0, isAI: false },
       2: { id: 2, name: 'Democrats', color: 0x3a52d9, score: 0, isAI: false }
     };
-    if (options.vsAI) {
-      this.players[2].isAI = true;
+    if (options.vsAI || options.mode === 'single') {
+      this.players[2].isAI = true; // Player 2 is AI in single-player mode
     }
     this.currentPlayer = 1;
     this.selectedPiece = null;
@@ -256,12 +255,12 @@ export class GameManager {
   endTurn() {
     this.updateScores();
     this.ui.updateScores(this.players[1].score, this.players[2].score);
+    if (this.checkGameOver()) { this._finalizeGame(); return; }
     this.currentPlayer = (this.currentPlayer === 1) ? 2 : 1;
     this.ui.updateTurn(this.players[this.currentPlayer].name);
-    if (this.checkGameOver()) {
-      this.ui.showGameOver(this.getWinner());
-    } else if (this.players[this.currentPlayer].isAI) {
-      this.scene.time.delayedCall(400, () => performAIMove(this));
+    if (this.scene.mode === 'single' && this.currentPlayer === 2 && this.scene.aiPlayer) {
+      // Let UI update before AI moves
+      this.scene.time.delayedCall(350, () => this.aiTurn(), [], this);
     }
   }
 
@@ -294,8 +293,36 @@ export class GameManager {
 
   checkGameOver() {
     if (this.boardFull()) return true;
-    if (!this.hasMovesForPlayer(1) && !this.hasMovesForPlayer(2)) return true;
+    const c1 = this.countPieces(1);
+    const c2 = this.countPieces(2);
+    if (c1 === 0 || c2 === 0) return true; // one side eliminated
+    if (!this.hasMovesForPlayer(1) && !this.hasMovesForPlayer(2)) return true; // mutual stalemate
     return false;
+  }
+
+  countPieces(pid) {
+    let n = 0; this.board.hexMap.forEach(hex => { const p = hex.data.values.piece; if (p && p.data.values.player === pid) n++; }); return n;
+  }
+
+  _finalizeGame() {
+    const winner = this.getWinner();
+    this.ui.showGameOver(winner);
+    // Disable input
+    this.board.hexMap.forEach(hex => hex.getData('hit')?.disableInteractive?.());
+  }
+
+  aiTurn() {
+    if (!this.scene.aiPlayer) return;
+    // Decide best move
+    const move = this.scene.aiPlayer.decideMove(this);
+    if (!move) { // no moves for AI
+      if (this.checkGameOver()) this._finalizeGame(); else this.endTurn();
+      return;
+    }
+    const srcHex = this.board.getHex(move.fromQ, move.fromR);
+    this.selectedPiece = srcHex?.data.values.piece || null;
+    if (!this.selectedPiece) { this.endTurn(); return; }
+    this.executeMove({ q: move.toQ, r: move.toR, type: move.type });
   }
 
   getWinner() {
