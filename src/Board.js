@@ -25,7 +25,6 @@ export class Board {
   const hex = this.drawHex(x, y, this.hexSize, 0xdddddd);
   // Store axial coords, piece ref, and geometric center for later lookups
   hex.setData({ q, r, piece: null, cx: x, cy: y });
-        hex.setInteractive({ useHandCursor: true });
         this.hexMap.set(this.axialKey(q, r), hex);
       }
     }
@@ -63,13 +62,22 @@ export class Board {
 
     graphics.setDepth(0);
     // Convert to interactive polygon hit area for precise picking
-    const polyPoints = points.flatMap(p => [p.x - cx, p.y - cy]);
-    const poly = this.scene.add.polygon(cx, cy, polyPoints, 0x000000, 0); // transparent hit area
-    poly.setStrokeStyle();
-    poly.setDepth(1);
-    graphics.setData('hit', poly);
-    // Forward input events from polygon to graphics for simplicity
-    poly.on('pointerdown', (pointer) => graphics.emit('pointerdown', pointer));
+  // Build local-space points for display & hit area (relative to center)
+  const localPoints = points.map(p => new Phaser.Geom.Point(p.x - cx, p.y - cy));
+  const geomPoly = new Phaser.Geom.Polygon(localPoints);
+  const flatPoints = localPoints.flatMap(p => [p.x, p.y]);
+  const poly = this.scene.add.polygon(cx, cy, flatPoints, 0x000000, 0); // transparent visuals
+  poly.setStrokeStyle();
+  poly.setDepth(1);
+  // Explicit interactive area uses geom polygon and its contains check
+  poly.setInteractive(geomPoly, Phaser.Geom.Polygon.Contains, { useHandCursor: true });
+  graphics.setData('hit', poly);
+  // Make the polygon the interactive surface (Graphics lacks auto size for hit area)
+  // Already set interactive above
+  // Forward key pointer events so external code can listen on the graphics reference if desired
+  poly.on('pointerdown', (pointer) => graphics.emit('pointerdown', pointer));
+  poly.on('pointerover', (pointer) => graphics.emit('pointerover', pointer));
+  poly.on('pointerout', (pointer) => graphics.emit('pointerout', pointer));
   return graphics; // treat graphics as the hex object interface
   }
 
