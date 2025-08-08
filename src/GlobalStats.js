@@ -40,9 +40,6 @@ export class GlobalStats {
           // Load the Google Sheets API
           await gapi.client.load('sheets', 'v4');
 
-          // Ensure proper sheet structure
-          await this.ensureSheetStructure();
-
           this.isInitialized = true;
           console.log('Google Sheets API initialized successfully');
           resolve(true);
@@ -54,26 +51,6 @@ export class GlobalStats {
     });
 
     return this.initPromise;
-  }
-
-  /**
-   * Ensure the spreadsheet has the correct structure
-   */
-  async ensureSheetStructure() {
-    const headers = ['Date', 'Winner', 'GameMode', 'RedScore', 'BlueScore', 'GameDuration', 'PlayerChoice'];
-    
-    try {
-      // Try to read the first row to check if headers exist
-      const response = await this.readRange('A1:G1');
-      
-      if (!response || !response.values || response.values.length === 0) {
-        // No headers found, create them
-        await this.writeRange('A1:G1', [headers]);
-        console.log('Created spreadsheet headers');
-      }
-    } catch (error) {
-      console.warn('Could not verify/create sheet structure:', error);
-    }
   }
 
   /**
@@ -124,31 +101,6 @@ export class GlobalStats {
       return true;
     } catch (error) {
       console.error('Failed to record game result via Apps Script:', error);
-      
-      // Fallback: Try to use gapi if available and initialized
-      try {
-        const initialized = await this.initialize();
-        if (initialized) {
-          const timestamp = new Date().toISOString();
-          const rowData = [
-            timestamp,
-            winner,
-            gameMode,
-            redScore,
-            blueScore,
-            gameDuration || 0,
-            playerChoice || 'N/A'
-          ];
-          
-          await this.appendRow(rowData);
-          console.log('Game result recorded via gapi fallback');
-          this.updateLocalCache(gameResult);
-          return true;
-        }
-      } catch (fallbackError) {
-        console.error('Fallback recording also failed:', fallbackError);
-      }
-      
       return false;
     }
   }
@@ -174,11 +126,9 @@ export class GlobalStats {
       const rows = data.values.slice(1); // Skip header row
       const stats = this.calculateStatistics(rows);
       
-      // Cache results locally
-      localStorage.setItem('globalStatsCache', JSON.stringify({
-        stats,
-        lastUpdated: Date.now()
-      }));
+      // Cache results locally with timestamp
+      localStorage.setItem('globalStatsCache', JSON.stringify(stats));
+      localStorage.setItem('globalStatsCacheTimestamp', Date.now().toString());
 
       return stats;
     } catch (error) {
@@ -282,56 +232,6 @@ export class GlobalStats {
   }
 
   /**
-   * Write data to a specific range in the spreadsheet using gapi
-   */
-  async writeRange(range, values) {
-    if (!this.isInitialized) {
-      throw new Error('Google Sheets API not initialized');
-    }
-
-    try {
-      const response = await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: this.SPREADSHEET_ID,
-        range: `${this.SHEET_NAME}!${range}`,
-        valueInputOption: 'RAW',
-        resource: {
-          values: values
-        }
-      });
-      
-      return response.result;
-    } catch (error) {
-      console.error('Error writing to sheet:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Append a new row to the spreadsheet using gapi
-   */
-  async appendRow(rowData) {
-    if (!this.isInitialized) {
-      throw new Error('Google Sheets API not initialized');
-    }
-
-    try {
-      const response = await gapi.client.sheets.spreadsheets.values.append({
-        spreadsheetId: this.SPREADSHEET_ID,
-        range: `${this.SHEET_NAME}!A:G`,
-        valueInputOption: 'RAW',
-        resource: {
-          values: [rowData]
-        }
-      });
-      
-      return response.result;
-    } catch (error) {
-      console.error('Error appending to sheet:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Update local cache for offline access
    */
   updateLocalCache(gameResult) {
@@ -350,8 +250,12 @@ export class GlobalStats {
   getCachedStats() {
     const cached = localStorage.getItem('globalStatsCache');
     if (cached) {
-      const data = JSON.parse(cached);
-      return data.stats || this.getEmptyStats();
+      try {
+        return JSON.parse(cached);
+      } catch (error) {
+        console.warn('Failed to parse cached stats:', error);
+        return this.getEmptyStats();
+      }
     }
     return this.getEmptyStats();
   }

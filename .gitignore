@@ -1,0 +1,14 @@
+# Capitol Conquest
+# Production deployment files
+.env.local
+.env.production
+*.log
+
+# Development
+node_modules/
+.DS_Store
+.vscode/
+
+# Testing
+coverage/
+*.test.js.coverage

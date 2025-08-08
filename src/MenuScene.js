@@ -87,7 +87,7 @@ export class HelpScene extends Phaser.Scene {
     this.add.rectangle(w/2, h/2, w, h, Config.COLORS.OVERLAY_DARK, 0.8);
     
     // Title
-    this.add.text(w/2, 40, 'How to Play Capitol Conquest 🏛️', 
+    this.add.text(w/2, 40, '🏛️ How to Play Capitol Conquest', 
       Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_BRIGHT_GOLD)
     ).setOrigin(0.5);
     
@@ -133,12 +133,29 @@ Player with the most pieces on the board wins!
 • Think about conversions before moving
 • Control the center for maximum influence`;
 
-    this.add.text(50, 120, rulesText, 
+    // Scrolling setup without mask
+    this.scrollY = 0;
+    this.maxScrollY = 0;
+    
+    // Create the rules text
+    this.rulesTextObj = this.add.text(50, 120, rulesText, 
       Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_WHITE, { 
         wordWrap: { width: w - 100 },
         lineSpacing: 5
       })
     );
+    
+    // Calculate max scroll based on content that goes below visible area
+    const visibleAreaBottom = h - 50; // Leave some space at bottom
+    const textBottom = this.rulesTextObj.y + this.rulesTextObj.height;
+    this.maxScrollY = Math.max(0, textBottom - visibleAreaBottom);
+    
+    // Simple scroll with mouse wheel - just move the text up/down
+    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+      this.scrollY += deltaY * 0.5;
+      this.scrollY = Phaser.Math.Clamp(this.scrollY, 0, this.maxScrollY);
+      this.rulesTextObj.y = 120 - this.scrollY;
+    });
     
     // Back button (similar to GlobalStatsScene)
     const backBtn = this.add.text(40, 40, '← Back', 

@@ -27,7 +27,7 @@ export class GlobalStatsScene extends Phaser.Scene {
     this.add.rectangle(w/2, h/2, w, h, Config.COLORS.OVERLAY_DARK, 0.7);
 
     // Title
-    this.add.text(w/2, 40, 'Global Statistics', 
+    this.add.text(w/2, 40, '🏆 Global Statistics', 
       Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_BRIGHT_GOLD)
     ).setOrigin(0.5);
 
@@ -183,11 +183,19 @@ export class GlobalStatsScene extends Phaser.Scene {
       this.loadingText.setStyle({ color: Config.COLORS.TEXT_RED });
     }
 
-    // Show cached data message if available
+    // Show cached data message if available at bottom of screen
     const cached = localStorage.getItem('globalStatsCache');
     if (cached) {
-      this.add.text(this.scale.width/2, this.scale.height/2 + 40, 
-        'Showing cached data (last updated: offline)', 
+      const cacheTimestamp = localStorage.getItem('globalStatsCacheTimestamp');
+      let lastUpdated = 'offline';
+      
+      if (cacheTimestamp) {
+        const date = new Date(parseInt(cacheTimestamp));
+        lastUpdated = date.toLocaleString();
+      }
+      
+      this.add.text(this.scale.width/2, this.scale.height - 40, 
+        `Showing cached data (last updated: ${lastUpdated})`, 
         Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_SILVER)
       ).setOrigin(0.5);
     }
