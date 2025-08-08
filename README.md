@@ -28,8 +28,24 @@ python3 -m http.server 8000
 
 Visit: http://localhost:8000
 
+Or with the provided `Makefile` (defaults to port 8000):
+
+```
+make serve          # start local server
+make open           # open the game URL in browser
+make push MSG="feat: something"  # add, commit, push
+```
+
 ## Gameplay
-Select one of your pieces (Republicans red / Democrats blue). Valid duplicate (adjacent) and jump (further) destinations are computed (visual highlight placeholders ready—enhance further as needed). Move duplicates or jumps; adjacent opponent pieces convert. Board / move exhaustion ends the game; higher piece count wins.
+Select one of your pieces (Republicans red / Democrats blue). When selected:
+
+- Green rings mark adjacent (distance 1) hexes: clicking creates a duplicate there (original stays).
+- Yellow rings mark jump (distance 2) hexes: clicking moves the piece (original removed).
+- A selection ring (pale yellow) indicates the currently selected piece.
+- You can click either the destination highlight ring itself or the underlying hex.
+- After a move finishes, all adjacent enemy pieces (distance 1) convert to your color.
+
+Turns alternate automatically; scores update after each move. The game ends when the board is full or neither player has a legal move—higher score wins (or draw on tie).
 
 ## Next Ideas
 - Animated highlights & move previews
@@ -37,6 +53,8 @@ Select one of your pieces (Republicans red / Democrats blue). Valid duplicate (a
 - AI opponent
 - Responsive resizing
 - Saving / loading game state
+ - Particle capture effects & sound
+ - Move history panel
 
 ## License
 MIT (add a LICENSE file if distributing).
