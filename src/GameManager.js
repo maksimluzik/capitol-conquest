@@ -1,13 +1,18 @@
 // GameManager.js - game state, turns, move validation
+import { performAIMove } from './AI.js';
+
 export class GameManager {
   constructor(board, ui, scene, options = {}) {
     this.board = board;
     this.ui = ui;
     this.scene = scene;
     this.players = options.players || {
-      1: { id: 1, name: 'Republicans', color: 0xd94343, score: 0 },
-      2: { id: 2, name: 'Democrats', color: 0x3a52d9, score: 0 }
+      1: { id: 1, name: 'Republicans', color: 0xd94343, score: 0, isAI: false },
+      2: { id: 2, name: 'Democrats', color: 0x3a52d9, score: 0, isAI: false }
     };
+    if (options.vsAI) {
+      this.players[2].isAI = true;
+    }
     this.currentPlayer = 1;
     this.selectedPiece = null;
     this.validMoves = [];
@@ -87,6 +92,7 @@ export class GameManager {
   }
 
   onPieceDown(piece) {
+    if (this.players[this.currentPlayer].isAI) return;
     if (piece.data.values.player !== this.currentPlayer) return;
     if (this.selectedPiece === piece) return; // already selected
     this.clearHighlights();
@@ -165,6 +171,7 @@ export class GameManager {
   }
 
   onHexClicked(hex) {
+    if (this.players[this.currentPlayer].isAI) return;
     const piece = hex.data.values.piece;
     if (!this.selectedPiece) {
       if (piece && piece.data.values.player === this.currentPlayer) {
@@ -251,7 +258,11 @@ export class GameManager {
     this.ui.updateScores(this.players[1].score, this.players[2].score);
     this.currentPlayer = (this.currentPlayer === 1) ? 2 : 1;
     this.ui.updateTurn(this.players[this.currentPlayer].name);
-    if (this.checkGameOver()) this.ui.showGameOver(this.getWinner());
+    if (this.checkGameOver()) {
+      this.ui.showGameOver(this.getWinner());
+    } else if (this.players[this.currentPlayer].isAI) {
+      this.scene.time.delayedCall(400, () => performAIMove(this));
+    }
   }
 
   hasMovesForPlayer(pid) {

@@ -5,6 +5,7 @@ import { UIManager } from './UIManager.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() { super('GameScene'); }
+  init(data) { this.vsAI = data?.vsAI; }
   preload() {}
 
   create() {
@@ -12,7 +13,7 @@ export class GameScene extends Phaser.Scene {
     this.board.generate();
 
     this.ui = new UIManager(this);
-    this.gameManager = new GameManager(this.board, this.ui, this, {});
+    this.gameManager = new GameManager(this.board, this.ui, this, { vsAI: this.vsAI });
 
     // Register hex clicks
     this.board.hexMap.forEach(hex => {
