@@ -168,6 +168,7 @@ export class GameManager {
         if (dist > 2) continue; // only up to jump distance
         const hex = this.board.getHex(nq, nr);
         if (!hex || hex.data.values.piece) continue; // must be empty
+        if (this.board.isBlocked(nq, nr)) continue; // cannot move to blocked hexes
         const type = (dist === 1) ? 'duplicate' : (dist === 2 ? 'jump' : null);
         if (!type) continue;
         this.validMoves.push({ q: nq, r: nr, type });

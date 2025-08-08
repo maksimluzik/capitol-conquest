@@ -1,12 +1,13 @@
 // MenuScene.js - main menu and help scenes
 import { GameScene } from './GameScene.js';
 import { loadScores, resetScores } from './PersistentScores.js';
+import { Config } from './config.js';
 
 export class MenuScene extends Phaser.Scene {
   constructor(){ super('MenuScene'); }
   create(){
     const w = this.scale.width; const h = this.scale.height;
-    this.add.text(w/2, h/2 - 140, 'Capitol Conquest', { fontFamily:'Arial', fontSize:'50px', color:'#222'}).setOrigin(0.5);
+    this.add.text(w/2, h/2 - 140, 'Capitol Conquest', Config.textStyle(Config.FONT_SIZES.TITLE, Config.COLORS.TEXT_DARK)).setOrigin(0.5);
     const options = [
       { label:'Single Player (vs AI)', mode:'single' },
       { label:'Two Player Local', mode:'two' },
@@ -15,7 +16,7 @@ export class MenuScene extends Phaser.Scene {
     ];
     this.items = [];
     options.forEach((o,i)=>{
-      const t = this.add.text(w/2, h/2 + i*60 - 20, o.label, { fontFamily:'Arial', fontSize:'30px', color:'#0a3d91'}).setOrigin(0.5).setInteractive({ useHandCursor:true });
+      const t = this.add.text(w/2, h/2 + i*60 - 20, o.label, Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.PRIMARY)).setOrigin(0.5).setInteractive({ useHandCursor:true });
       t.on('pointerover', ()=> t.setStyle({ color:'#d94343'}));
       t.on('pointerout', ()=> t.setStyle({ color:'#0a3d91'}));
       t.on('pointerdown', ()=> this._select(o));
@@ -41,7 +42,7 @@ export class MenuScene extends Phaser.Scene {
     if (this.scoreText) this.scoreText.destroy();
     this.scoreText = this.add.text(this.scale.width/2, this.scale.height - 40,
       `Cumulative Wins  Red: ${scores.red}  Blue: ${scores.blue}`,
-      { fontFamily:'Arial', fontSize:'20px', color:'#222'}).setOrigin(0.5).setDepth(50);
+      Config.textStyle(Config.FONT_SIZES.SMALL, Config.COLORS.TEXT_DARK)).setOrigin(0.5).setDepth(50);
   }
 }
 
@@ -49,7 +50,7 @@ export class HelpScene extends Phaser.Scene {
   constructor(){ super('HelpScene'); }
   create(){
     const txt = `Rules:\nSelect a piece. Green = duplicate (distance 1). Yellow = jump (distance 2).\nDuplicate keeps original; jump removes it. Adjacent enemy pieces convert after move.\nGoal: finish with more pieces. Press ESC for Menu.`;
-    this.add.text(40,40,txt,{ fontFamily:'Arial', fontSize:'20px', color:'#222', wordWrap:{ width:this.scale.width-80 }});
+    this.add.text(40,40,txt, Config.textStyle(Config.FONT_SIZES.SMALL, Config.COLORS.TEXT_DARK, { wordWrap:{ width:this.scale.width-80 } }));
     this.input.keyboard.on('keydown-ESC', ()=> this.scene.start('MenuScene'));
   }
 }
@@ -58,13 +59,13 @@ export class ColorSelectScene extends Phaser.Scene {
   constructor(){ super('ColorSelectScene'); }
   create(){
     const w = this.scale.width; const h = this.scale.height;
-    this.add.text(w/2, h/2 - 120, 'Choose Your Side', { fontFamily:'Arial', fontSize:'46px', color:'#222'}).setOrigin(0.5);
+    this.add.text(w/2, h/2 - 120, 'Choose Your Side', Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_DARK)).setOrigin(0.5);
     const options = [
       { label:'Play as Red (Republicans)', playerId:1, playerColor:0xd94343, aiColor:0x3a52d9 },
       { label:'Play as Blue (Democrats)', playerId:2, playerColor:0x3a52d9, aiColor:0xd94343 }
     ];
     options.forEach((o,i)=>{
-      const t = this.add.text(w/2, h/2 + i*70 - 10, o.label, { fontFamily:'Arial', fontSize:'30px', color:'#0a3d91'}).setOrigin(0.5).setInteractive({ useHandCursor:true });
+      const t = this.add.text(w/2, h/2 + i*70 - 10, o.label, Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.PRIMARY)).setOrigin(0.5).setInteractive({ useHandCursor:true });
       t.on('pointerover', ()=> t.setStyle({ color:'#d94343'}));
       t.on('pointerout', ()=> t.setStyle({ color:'#0a3d91'}));
       t.on('pointerdown', ()=> this._choose(o));

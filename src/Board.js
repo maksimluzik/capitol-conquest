@@ -1,4 +1,4 @@
-// Board.js - hex grid creation and management
+// Board.js - hex grid creation and management with procedural blocked hexes
 export class Board {
   constructor(scene, options) {
     this.scene = scene;
@@ -8,16 +8,22 @@ export class Board {
     this.rotationDeg = options.rotationDeg != null ? options.rotationDeg : 30; // user requested ~45°
     this.container = scene.add.layer();
     this.hexMap = new Map(); // key: "q,r" -> hex graphics object
+    this.blockedHexes = new Set(); // Set of "q,r" keys for blocked hexes
+    this.blockedPercentage = options.blockedPercentage || 0.10; // 10% blocked by default
   }
 
   axialKey(q, r) { return `${q},${r}`; }
   getHex(q, r) { return this.hexMap.get(this.axialKey(q, r)); }
   forEachHex(cb) { this.hexMap.forEach(cb); }
+  isBlocked(q, r) { return this.blockedHexes.has(this.axialKey(q, r)); }
 
   generate() {
     const offsetX = this.scene.scale.width / 2;
     const offsetY = this.scene.scale.height / 2;
     const hexHeight = this.hexSize * Math.sqrt(3);
+
+    // Generate blocked hexes procedurally before creating the visual board
+    this.generateBlockedHexes();
 
     // Add ambient background effects
     this.addBackgroundEffects();
@@ -28,18 +34,112 @@ export class Board {
         const x = offsetX + this.hexSize * 1.5 * q;
         const y = offsetY + hexHeight * (r + q / 2);
         
-        // Vary hex colors slightly for more natural appearance
+        // Determine hex color based on blocked status and natural variation
+        const isBlocked = this.isBlocked(q, r);
         const distance = Math.abs(q) + Math.abs(r) + Math.abs(q + r);
-        const baseColor = 0xdddddd;
-        const variation = Math.floor(distance * 3) % 20 - 10; // ±10 color variation
-        const variedColor = this.adjustColor(baseColor, variation);
+        let baseColor, variation;
         
-        const hex = this.drawHex(x, y, this.hexSize, variedColor);
-        // Store axial coords, piece ref, and geometric center for later lookups
-        hex.setData({ q, r, piece: null, cx: x, cy: y });
+        if (isBlocked) {
+          baseColor = 0x666666; // Dark gray for blocked hexes
+          variation = Math.floor(distance * 2) % 15 - 7; // Less variation for blocked
+        } else {
+          baseColor = 0xdddddd; // Normal light gray
+          variation = Math.floor(distance * 3) % 20 - 10; // ±10 color variation
+        }
+        
+        const variedColor = this.adjustColor(baseColor, variation);
+        const hex = this.drawHex(x, y, this.hexSize, variedColor, isBlocked);
+        
+        // Store axial coords, piece ref, geometric center, and blocked status
+        hex.setData({ q, r, piece: null, cx: x, cy: y, blocked: isBlocked });
         this.hexMap.set(this.axialKey(q, r), hex);
       }
     }
+  }
+
+  /**
+   * Procedurally generates blocked hexes with balanced distribution
+   * Algorithm ensures:
+   * - Starting positions remain unblocked
+   * - No large clusters of blocked hexes
+   * - Fair distribution across the board
+   * - Specified percentage of total hexes are blocked
+   */
+  generateBlockedHexes() {
+    this.blockedHexes.clear();
+    
+    // Define guaranteed unblocked positions (starting positions)
+    const protectedPositions = new Set([
+      this.axialKey(-this.size, 0),     // Player 1 start
+      this.axialKey(this.size, 0),      // Player 2 start  
+      this.axialKey(0, -this.size),     // Player 1 start
+      this.axialKey(0, this.size),      // Player 2 start
+      this.axialKey(-this.size, this.size), // Player 1 start
+      this.axialKey(this.size, -this.size)  // Player 2 start
+    ]);
+    
+    // Add buffer zones around starting positions (1 hex radius)
+    const bufferZones = new Set();
+    protectedPositions.forEach(pos => {
+      const [q, r] = pos.split(',').map(Number);
+      for (let dq = -1; dq <= 1; dq++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          const nq = q + dq, nr = r + dr;
+          if (Math.abs(nq + nr) <= this.size && Math.abs(nq) <= this.size && Math.abs(nr) <= this.size) {
+            bufferZones.add(this.axialKey(nq, nr));
+          }
+        }
+      }
+    });
+    
+    // Calculate all valid hex positions
+    const allPositions = [];
+    for (let q = -this.size; q <= this.size; q++) {
+      for (let r = -this.size; r <= this.size; r++) {
+        if (Math.abs(q + r) <= this.size) {
+          const key = this.axialKey(q, r);
+          if (!bufferZones.has(key)) {
+            allPositions.push({ q, r, key });
+          }
+        }
+      }
+    }
+    
+    const targetBlocked = Math.floor(allPositions.length * this.blockedPercentage);
+    
+    // Distribute blocked hexes using a dispersal algorithm
+    let attempts = 0;
+    while (this.blockedHexes.size < targetBlocked && attempts < targetBlocked * 3) {
+      const candidate = allPositions[Math.floor(Math.random() * allPositions.length)];
+      
+      // Check if this position would create a large cluster
+      if (!this.wouldCreateCluster(candidate.q, candidate.r)) {
+        this.blockedHexes.add(candidate.key);
+      }
+      attempts++;
+    }
+    
+    console.log(`Generated ${this.blockedHexes.size} blocked hexes out of ${allPositions.length} available positions (${(this.blockedHexes.size/allPositions.length*100).toFixed(1)}%)`);
+  }
+  
+  /**
+   * Checks if blocking a hex would create an undesirable cluster
+   * Returns true if it would create a cluster of 4+ adjacent blocked hexes
+   */
+  wouldCreateCluster(q, r) {
+    const neighbors = [
+      [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]
+    ];
+    
+    let blockedNeighbors = 0;
+    for (const [dq, dr] of neighbors) {
+      if (this.isBlocked(q + dq, r + dr)) {
+        blockedNeighbors++;
+      }
+    }
+    
+    // Prevent clustering: don't allow more than 2 blocked neighbors
+    return blockedNeighbors >= 2;
   }
 
   addBackgroundEffects() {
@@ -77,7 +177,7 @@ export class Board {
     return Phaser.Display.Color.GetColor(r, g, b);
   }
 
-  drawHex(cx, cy, radius, fillColor) {
+  drawHex(cx, cy, radius, fillColor, isBlocked = false) {
     // Create a highly stylized 3D hex with advanced Phaser effects
     const container = this.scene.add.container(cx, cy);
     
@@ -94,121 +194,180 @@ export class Board {
       points.push({ x: radius * Math.cos(angle), y: radius * Math.sin(angle) });
     }
     
-    // Enhanced drop shadow with blur simulation (multiple offset layers)
-    for (let blur = 0; blur < 4; blur++) {
-      const offset = 4 + blur;
-      const alpha = 0.08 / (blur + 1);
-      shadowLayer.fillStyle(0x000000, alpha);
+    if (isBlocked) {
+      // Blocked hex styling - darker and more subdued
+      const blockedColor = 0x444444; // Dark gray base
+      
+      // Simplified shadow for blocked hexes
+      shadowLayer.fillStyle(0x000000, 0.4);
       shadowLayer.beginPath();
-      shadowLayer.moveTo(points[0].x + offset, points[0].y + offset);
+      shadowLayer.moveTo(points[0].x + 3, points[0].y + 3);
       for (let i = 1; i < points.length; i++) {
-        shadowLayer.lineTo(points[i].x + offset, points[i].y + offset);
+        shadowLayer.lineTo(points[i].x + 3, points[i].y + 3);
       }
       shadowLayer.closePath();
       shadowLayer.fillPath();
-    }
-    
-    // Base hex with gradient simulation (concentric fills getting brighter)
-    const gradientSteps = 6;
-    for (let step = gradientSteps; step >= 0; step--) {
-      const t = step / gradientSteps;
-      const currentRadius = radius * (0.7 + 0.3 * t);
-      const brightness = 0.85 + 0.15 * (1 - t);
       
-      // Darken the base color and brighten towards center
-      const baseCol = Phaser.Display.Color.IntegerToColor(fillColor);
-      const adjustedColor = Phaser.Display.Color.GetColor(
-        Math.floor(baseCol.red * brightness),
-        Math.floor(baseCol.green * brightness), 
-        Math.floor(baseCol.blue * brightness)
-      );
-      
-      baseLayer.fillStyle(adjustedColor, 1);
+      // Base blocked hex with minimal gradient
+      baseLayer.fillStyle(blockedColor, 1);
       baseLayer.beginPath();
-      baseLayer.moveTo(points[0].x * (currentRadius/radius), points[0].y * (currentRadius/radius));
+      baseLayer.moveTo(points[0].x, points[0].y);
       for (let i = 1; i < points.length; i++) {
-        baseLayer.lineTo(points[i].x * (currentRadius/radius), points[i].y * (currentRadius/radius));
+        baseLayer.lineTo(points[i].x, points[i].y);
       }
       baseLayer.closePath();
       baseLayer.fillPath();
-    }
-    
-    // Outer rim with dark edge for definition
-    baseLayer.lineStyle(2, 0x111111, 0.8);
-    baseLayer.beginPath();
-    baseLayer.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) baseLayer.lineTo(points[i].x, points[i].y);
-    baseLayer.closePath();
-    baseLayer.strokePath();
-    
-    // Directional highlight (top-left lighting)
-    const lightAngle = Math.PI * 1.25; // top-left
-    for (let i = 0; i < 6; i++) {
-      const edgeAngle = Math.PI/3 * i + rot;
-      const lightDot = Math.max(0, Math.cos(edgeAngle - lightAngle));
-      const intensity = lightDot * 0.4;
       
-      if (intensity > 0.1) {
-        highlightLayer.lineStyle(3, 0xffffff, intensity);
-        highlightLayer.beginPath();
-        highlightLayer.moveTo(points[i].x, points[i].y);
-        highlightLayer.lineTo(points[(i + 1) % 6].x, points[(i + 1) % 6].y);
-        highlightLayer.strokePath();
+      // Add diagonal stripe pattern contained within hex bounds
+      baseLayer.lineStyle(2, 0x666666, 0.7);
+      const stripeSpacing = radius * 0.4;
+      const hexBounds = radius * 0.85; // Stay within hex bounds
+      
+      for (let offset = -hexBounds; offset <= hexBounds; offset += stripeSpacing) {
+        // Calculate stripe endpoints that stay within hex
+        const y1 = -hexBounds * 0.5;
+        const y2 = hexBounds * 0.5;
+        const x1 = offset - hexBounds * 0.5;
+        const x2 = offset + hexBounds * 0.5;
+        
+        // Only draw if the stripe would be visible within the hex
+        if (Math.abs(x1) < hexBounds && Math.abs(x2) < hexBounds) {
+          baseLayer.beginPath();
+          baseLayer.moveTo(x1, y1);
+          baseLayer.lineTo(x2, y2);
+          baseLayer.strokePath();
+        }
       }
-    }
-    
-    // Inner glow effect
-    for (let glow = 0; glow < 3; glow++) {
-      const glowRadius = radius * (0.4 - glow * 0.1);
-      const glowAlpha = 0.15 / (glow + 1);
-      highlightLayer.fillStyle(0xffffff, glowAlpha);
-      highlightLayer.beginPath();
+      
+      // Dark border for blocked hexes
+      baseLayer.lineStyle(3, 0x222222, 1);
+      baseLayer.beginPath();
+      baseLayer.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) baseLayer.lineTo(points[i].x, points[i].y);
+      baseLayer.closePath();
+      baseLayer.strokePath();
+      
+    } else {
+      // Enhanced drop shadow with blur simulation (multiple offset layers)
+      for (let blur = 0; blur < 4; blur++) {
+        const offset = 4 + blur;
+        const alpha = 0.08 / (blur + 1);
+        shadowLayer.fillStyle(0x000000, alpha);
+        shadowLayer.beginPath();
+        shadowLayer.moveTo(points[0].x + offset, points[0].y + offset);
+        for (let i = 1; i < points.length; i++) {
+          shadowLayer.lineTo(points[i].x + offset, points[i].y + offset);
+        }
+        shadowLayer.closePath();
+        shadowLayer.fillPath();
+      }
+      
+      // Base hex with gradient simulation (concentric fills getting brighter)
+      const gradientSteps = 6;
+      for (let step = gradientSteps; step >= 0; step--) {
+        const t = step / gradientSteps;
+        const currentRadius = radius * (0.7 + 0.3 * t);
+        const brightness = 0.85 + 0.15 * (1 - t);
+        
+        // Darken the base color and brighten towards center
+        const baseCol = Phaser.Display.Color.IntegerToColor(fillColor);
+        const adjustedColor = Phaser.Display.Color.GetColor(
+          Math.floor(baseCol.red * brightness),
+          Math.floor(baseCol.green * brightness), 
+          Math.floor(baseCol.blue * brightness)
+        );
+        
+        baseLayer.fillStyle(adjustedColor, 1);
+        baseLayer.beginPath();
+        baseLayer.moveTo(points[0].x * (currentRadius/radius), points[0].y * (currentRadius/radius));
+        for (let i = 1; i < points.length; i++) {
+          baseLayer.lineTo(points[i].x * (currentRadius/radius), points[i].y * (currentRadius/radius));
+        }
+        baseLayer.closePath();
+        baseLayer.fillPath();
+      }
+      
+      // Outer rim with dark edge for definition
+      baseLayer.lineStyle(2, 0x111111, 0.8);
+      baseLayer.beginPath();
+      baseLayer.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) baseLayer.lineTo(points[i].x, points[i].y);
+      baseLayer.closePath();
+      baseLayer.strokePath();
+      
+      // Directional highlight (top-left lighting)
+      const lightAngle = Math.PI * 1.25; // top-left
       for (let i = 0; i < 6; i++) {
-        const angle = Math.PI/3 * i + rot;
-        const x = glowRadius * Math.cos(angle);
-        const y = glowRadius * Math.sin(angle);
-        if (i === 0) highlightLayer.moveTo(x, y);
-        else highlightLayer.lineTo(x, y);
+        const edgeAngle = Math.PI/3 * i + rot;
+        const lightDot = Math.max(0, Math.cos(edgeAngle - lightAngle));
+        const intensity = lightDot * 0.4;
+        
+        if (intensity > 0.1) {
+          highlightLayer.lineStyle(3, 0xffffff, intensity);
+          highlightLayer.beginPath();
+          highlightLayer.moveTo(points[i].x, points[i].y);
+          highlightLayer.lineTo(points[(i + 1) % 6].x, points[(i + 1) % 6].y);
+          highlightLayer.strokePath();
+        }
       }
-      highlightLayer.closePath();
-      highlightLayer.fillPath();
+      
+      // Inner glow effect
+      for (let glow = 0; glow < 3; glow++) {
+        const glowRadius = radius * (0.4 - glow * 0.1);
+        const glowAlpha = 0.15 / (glow + 1);
+        highlightLayer.fillStyle(0xffffff, glowAlpha);
+        highlightLayer.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = Math.PI/3 * i + rot;
+          const x = glowRadius * Math.cos(angle);
+          const y = glowRadius * Math.sin(angle);
+          if (i === 0) highlightLayer.moveTo(x, y);
+          else highlightLayer.lineTo(x, y);
+        }
+        highlightLayer.closePath();
+        highlightLayer.fillPath();
+      }
+      
+      // Specular highlight (small bright spot)
+      const specX = radius * -0.3;
+      const specY = radius * -0.3;
+      rimLayer.fillStyle(0xffffff, 0.6);
+      rimLayer.fillEllipse(specX, specY, 4, 2);
     }
-    
-    // Specular highlight (small bright spot)
-    const specX = radius * -0.3;
-    const specY = radius * -0.3;
-    rimLayer.fillStyle(0xffffff, 0.6);
-    rimLayer.fillEllipse(specX, specY, 4, 2);
     
     // Add all layers to container with proper depth
     container.add([shadowLayer, baseLayer, highlightLayer, rimLayer]);
     container.setDepth(0);
     
-    // Apply subtle scale tween for living board effect
-    this.scene.tweens.add({
-      targets: container,
-      scaleX: { from: 1, to: 1.02 },
-      scaleY: { from: 1, to: 1.02 },
-      duration: 2000 + Math.random() * 1000,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.InOut'
-    });
+    // Apply subtle scale tween for living board effect (less pronounced for blocked hexes)
+    if (!isBlocked) {
+      this.scene.tweens.add({
+        targets: container,
+        scaleX: { from: 1, to: 1.02 },
+        scaleY: { from: 1, to: 1.02 },
+        duration: 2000 + Math.random() * 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut'
+      });
+    }
     
-    // Interactive polygon (reuse existing logic but adjust for container)
-    const localPoints = points.map(p => new Phaser.Geom.Point(p.x, p.y));
-    const geomPoly = new Phaser.Geom.Polygon(localPoints);
-    const flatPoints = localPoints.flatMap(p => [p.x, p.y]);
-    const poly = this.scene.add.polygon(cx, cy, flatPoints, 0x000000, 0);
-    poly.setStrokeStyle();
-    poly.setDepth(1);
-    poly.setInteractive(geomPoly, Phaser.Geom.Polygon.Contains, { useHandCursor: true });
-    
-    // Store reference and forward events
-    container.setData('hit', poly);
-    poly.on('pointerdown', (pointer) => container.emit('pointerdown', pointer));
-    poly.on('pointerover', (pointer) => container.emit('pointerover', pointer));
-    poly.on('pointerout', (pointer) => container.emit('pointerout', pointer));
+    // Interactive polygon (only for non-blocked hexes)
+    if (!isBlocked) {
+      const localPoints = points.map(p => new Phaser.Geom.Point(p.x, p.y));
+      const geomPoly = new Phaser.Geom.Polygon(localPoints);
+      const flatPoints = localPoints.flatMap(p => [p.x, p.y]);
+      const poly = this.scene.add.polygon(cx, cy, flatPoints, 0x000000, 0);
+      poly.setStrokeStyle();
+      poly.setDepth(1);
+      poly.setInteractive(geomPoly, Phaser.Geom.Polygon.Contains, { useHandCursor: true });
+      
+      // Store reference and forward events
+      container.setData('hit', poly);
+      poly.on('pointerdown', (pointer) => container.emit('pointerdown', pointer));
+      poly.on('pointerover', (pointer) => container.emit('pointerover', pointer));
+      poly.on('pointerout', (pointer) => container.emit('pointerout', pointer));
+    }
     
     return container;
   }

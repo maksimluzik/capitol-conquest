@@ -51,6 +51,7 @@ export class AI {
         const tq = q + dq, tr = r + dr;
         const hex = board.getHex(tq, tr);
         if (!hex || hex.data.values.piece) continue;
+        if (board.isBlocked(tq, tr)) continue; // Skip blocked hexes
         const dist = this._axialDistance(q, r, tq, tr);
         if (dist > 2) continue;
         out.push({ fromQ: q, fromR: r, toQ: tq, toR: tr, type: dist === 1 ? 'duplicate' : 'jump' });

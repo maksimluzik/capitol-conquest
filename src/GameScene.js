@@ -36,7 +36,9 @@ export class GameScene extends Phaser.Scene {
     }
     this.board.hexMap.forEach(hex => {
       const hitPoly = hex.getData('hit');
-      hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
+      if (hitPoly) { // Only add listeners for interactive hexes (non-blocked)
+        hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
+      }
     });
     this.gameManager.setupInitialPieces();
   // Add skip turn UI and keyboard shortcut
