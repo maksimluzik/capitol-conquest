@@ -8,6 +8,8 @@ Modular two-player territory capture game on a hex grid built with Phaser 3.
 
 `src/GameManager.js` – Core game rules, turn logic, move validation, piece placement and conversion, scoring, game-over detection.
 
+`src/AI.js` – Simple move evaluation for a basic computer opponent.
+
 `src/UIManager.js` – Score + turn text and game-over overlay.
 
 `src/GameScene.js` – Wires subsystems inside a Phaser Scene.
@@ -29,6 +31,8 @@ python3 -m http.server 8000
 Visit: http://localhost:8000
 
 ## Gameplay
+When loading the page you'll be prompted to face another human or a basic computer opponent. Selecting the computer enables an AI to control the Democrats (player two).
+
 Select one of your pieces (Republicans red / Democrats blue). Valid duplicate (adjacent) and jump (further) destinations are computed (visual highlight placeholders ready—enhance further as needed). Move duplicates or jumps; adjacent opponent pieces convert. Board / move exhaustion ends the game; higher piece count wins.
 
 ## Next Ideas
