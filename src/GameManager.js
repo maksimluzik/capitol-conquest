@@ -7,8 +7,8 @@ export class GameManager {
     this.ui = ui;
     this.scene = scene;
     this.players = options.players || {
-      1: { id: 1, name: 'Republicans', color: 0xd94343, score: 0, isAI: false },
-      2: { id: 2, name: 'Democrats', color: 0x3a52d9, score: 0, isAI: false }
+      1: { id: 1, name: 'Republicans', color: 0xdc2626, score: 0, isAI: false }, // Rich crimson red
+      2: { id: 2, name: 'Democrats', color: 0x2563eb, score: 0, isAI: false }   // Royal blue
     };
     this.humanPlayerId = options.humanPlayerId || 1; // default human is player 1
     if (options.mode === 'single' || options.vsAI) {
@@ -19,6 +19,7 @@ export class GameManager {
     this.currentPlayer = this.humanPlayerId; // human always starts
     this.selectedPiece = null;
     this.validMoves = [];
+    this.gameEnded = false;
     this.tokenLayer = scene.add.layer();
   }
 
@@ -35,47 +36,80 @@ export class GameManager {
     this.ui.updateScores(this.players[1].score, this.players[2].score);
   }
 
-  addPiece(q, r, playerId) {
+  addPiece(q, r, playerId, { animateSpawn = false } = {}) {
     const hex = this.board.getHex(q, r);
     if (!hex) return;
     const { x, y } = this.hexCenter(hex);
-    const pieceRadius = this.board.hexSize * 0.55;
-    const token = this.drawToken(x, y, pieceRadius, this.players[playerId].color);
-    token.setData({ q, r, player: playerId });
-    // Explicit hit area in local space (token draws at 0,0 after refactor)
-    token.setInteractive(new Phaser.Geom.Circle(0, 0, pieceRadius), Phaser.Geom.Circle.Contains, { useHandCursor: true });
-    token.on('pointerdown', () => this.onPieceDown(token));
-    hex.setData('piece', token);
+    const size = this.board.hexSize * 0.55;
+    const piece = this.drawHexPiece(x, y, size, this.players[playerId].color);
+    piece.setData({ q, r, player: playerId });
+    piece.setInteractive(new Phaser.Geom.Polygon(piece.getData('polyPoints')), Phaser.Geom.Polygon.Contains, { useHandCursor: true });
+    piece.on('pointerdown', () => this.onPieceDown(piece));
+    if (animateSpawn) {
+      piece.setScale(0);
+      this.scene.tweens.add({ targets: piece, scale: 1, duration: 220, ease: 'Back.Out' });
+    }
+    hex.setData('piece', piece);
   }
 
-  drawToken(cx, cy, radius, baseColor) {
+  // Draw a hex-shaped game piece with pseudo 3D shading.
+  drawHexPiece(cx, cy, radius, baseColor) {
     const g = this.scene.add.graphics();
-    // Position at center; subsequent drawing uses local coordinates
-    g.x = cx;
-    g.y = cy;
-    // Base circle with gradient-like layered fills
-    const colors = [baseColor, 0xffffff];
-    const gradientSteps = 4;
-    for (let i = 0; i < gradientSteps; i++) {
-      const t = i / (gradientSteps - 1);
-      const mix = Phaser.Display.Color.Interpolate.ColorWithColor(
-        Phaser.Display.Color.IntegerToColor(colors[0]),
-        Phaser.Display.Color.IntegerToColor(colors[1]),
-        gradientSteps - 1,
-        i
-      );
-      const col = Phaser.Display.Color.GetColor(mix.r, mix.g, mix.b);
-      g.fillStyle(col, 0.25 + 0.75 * (1 - t));
-      g.fillCircle(0, 0, radius * (1 - 0.15 * t));
+    g.x = cx; g.y = cy;
+    const rot = Phaser.Math.DegToRad(this.board.rotationDeg);
+    const pts = [];
+    for (let i=0;i<6;i++) {
+      const ang = Phaser.Math.DegToRad(60*i - 30) + rot;
+      pts.push({ x: radius * Math.cos(ang), y: radius * Math.sin(ang) });
     }
-    // Bevel highlight arc
-    g.lineStyle(2, 0xffffff, 0.6);
+    // Store polygon points for hit testing (flattened relative coords)
+    const polyPoints = pts.flatMap(p => [p.x, p.y]);
+    g.setData('polyPoints', polyPoints);
+  g.setData('pts', pts); // store for later redraw (conversion color tween)
+  g.setData('radius', radius);
+    // Shadow layer
+    g.fillStyle(0x000000, 0.25);
     g.beginPath();
-    g.arc(0, 0, radius * 0.75, Phaser.Math.DegToRad(220), Phaser.Math.DegToRad(320));
+    g.moveTo(pts[0].x + 3, pts[0].y + 4);
+    for (let i=1;i<6;i++) g.lineTo(pts[i].x + 3, pts[i].y + 4);
+    g.closePath();
+    g.fillPath();
+    // Base
+    g.lineStyle(2, 0x111111, 0.9);
+    g.fillStyle(baseColor, 1);
+    g.beginPath();
+    g.moveTo(pts[0].x, pts[0].y);
+    for (let i=1;i<6;i++) g.lineTo(pts[i].x, pts[i].y);
+    g.closePath(); g.fillPath(); g.strokePath();
+    // Inner gradient approximation (concentric scaled hexes fading)
+    const steps = 4;
+    for (let s=1; s<=steps; s++) {
+      const t = s/steps;
+      const fade = 0.10 * (1-t);
+      const scale = 1 - 0.18*t;
+      g.fillStyle(0xffffff, fade);
+      g.beginPath();
+      pts.forEach((p,i)=> {
+        const x = p.x * scale - 1.5 * (1-t);
+        const y = p.y * scale - 1.0 * (1-t);
+        if (i===0) g.moveTo(x,y); else g.lineTo(x,y);
+      });
+      g.closePath(); g.fillPath();
+    }
+    // Rim light top-left edges
+    g.lineStyle(3, 0xffffff, 0.35);
+    g.beginPath();
+    g.moveTo(pts[5].x, pts[5].y);
+    g.lineTo(pts[0].x, pts[0].y);
+    g.lineTo(pts[1].x, pts[1].y);
     g.strokePath();
-    // Shadow
-    g.fillStyle(0x000000, 0.15);
-    g.fillCircle(radius * 0.15, radius * 0.15, radius * 0.8);
+    // Subtle ambient occlusion bottom-right edge
+    g.lineStyle(3, 0x000000, 0.25);
+    g.beginPath();
+    g.moveTo(pts[2].x, pts[2].y);
+    g.lineTo(pts[3].x, pts[3].y);
+    g.lineTo(pts[4].x, pts[4].y);
+    g.strokePath();
     g.setDepth(10);
     return g;
   }
@@ -95,7 +129,7 @@ export class GameManager {
   }
 
   onPieceDown(piece) {
-  if (this.players[this.currentPlayer].isAI) return;
+  if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
     if (piece.data.values.player !== this.currentPlayer) return;
     if (this.selectedPiece === piece) return; // already selected
     this.clearHighlights();
@@ -174,7 +208,7 @@ export class GameManager {
   }
 
   onHexClicked(hex) {
-    if (this.players[this.currentPlayer].isAI) return;
+    if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
     const piece = hex.data.values.piece;
     if (!this.selectedPiece) {
       if (piece && piece.data.values.player === this.currentPlayer) {
@@ -223,27 +257,91 @@ export class GameManager {
     const oldR = this.selectedPiece.data.values.r;
 
     if (move.type === 'jump') {
+      // Animate jump movement along an arced path then finalize at destination
+      const movingPiece = this.selectedPiece;
       const oldHex = this.board.getHex(oldQ, oldR);
       oldHex?.setData('piece', null);
-      this.selectedPiece.destroy();
+      const destHex = this.board.getHex(move.q, move.r);
+      const { x: dx, y: dy } = this.hexCenter(destHex);
+      const sx = movingPiece.x, sy = movingPiece.y;
+      const arcHeight = this.board.hexSize * 0.9; // peak height
+      const tweenObj = { t: 0 };
+      this.scene.tweens.add({
+        targets: tweenObj,
+        t: 1,
+        duration: 300,
+        ease: 'Cubic.Out',
+        onUpdate: () => {
+          const t = tweenObj.t;
+          movingPiece.x = Phaser.Math.Linear(sx, dx, t);
+            // Arc via sine; peak at t=0.5
+          const lift = Math.sin(Math.PI * t) * arcHeight;
+          movingPiece.y = Phaser.Math.Linear(sy, dy, t) - lift;
+        },
+        onComplete: () => {
+          movingPiece.x = dx; movingPiece.y = dy;
+          movingPiece.setData({ q: move.q, r: move.r, player });
+          destHex.setData('piece', movingPiece);
+          this.convertAdjacent(move.q, move.r, player);
+          this.updateScores();
+          this.clearHighlights();
+          this.selectedPiece = null;
+          this.endTurn();
+        }
+      });
+      return; // defer endTurn until animation complete
+    } else {
+      // Duplicate: spawn new piece with scale-in animation
+      this.addPiece(move.q, move.r, player, { animateSpawn: true });
+      this.convertAdjacent(move.q, move.r, player);
     }
-    // Duplicate keeps original piece
-
-    this.addPiece(move.q, move.r, player);
-    this.convertAdjacent(move.q, move.r, player);
-  this.updateScores();
-  this.clearHighlights();
+    this.updateScores();
+    this.clearHighlights();
     this.selectedPiece = null;
     this.endTurn();
   }
 
   convertAdjacent(q, r, player) {
+    // Color tween + pulse existing piece rather than destroy/recreate instantly.
     this.directionsDuplicate().forEach(([dq, dr]) => {
       const hex = this.board.getHex(q + dq, r + dr);
       if (hex && hex.data.values.piece && hex.data.values.piece.data.values.player !== player) {
-        // Replace piece
-        hex.data.values.piece.destroy();
-        this.addPiece(q + dq, r + dr, player);
+        const piece = hex.data.values.piece;
+        const fromColor = this.players[piece.data.values.player].color;
+        const toColor = this.players[player].color;
+        piece.data.values.player = player;
+        const fromCol = Phaser.Display.Color.IntegerToColor(fromColor);
+        const toCol = Phaser.Display.Color.IntegerToColor(toColor);
+        const pts = piece.getData('pts');
+        this.scene.tweens.addCounter({
+          from: 0,
+          to: 100,
+          duration: 260,
+          ease: 'Sine.InOut',
+          onUpdate: tw => {
+            const t = tw.getValue()/100;
+            const r = Phaser.Math.Linear(fromCol.red, toCol.red, t);
+            const g = Phaser.Math.Linear(fromCol.green, toCol.green, t);
+            const b = Phaser.Math.Linear(fromCol.blue, toCol.blue, t);
+            const blended = Phaser.Display.Color.GetColor(r,g,b);
+            piece.clear();
+            // Shadow
+            piece.fillStyle(0x000000,0.25); piece.beginPath(); piece.moveTo(pts[0].x+3,pts[0].y+4); for(let i=1;i<6;i++) piece.lineTo(pts[i].x+3,pts[i].y+4); piece.closePath(); piece.fillPath();
+            // Base
+            piece.lineStyle(2,0x111111,0.9); piece.fillStyle(blended,1); piece.beginPath(); piece.moveTo(pts[0].x,pts[0].y); for(let i=1;i<6;i++) piece.lineTo(pts[i].x,pts[i].y); piece.closePath(); piece.fillPath(); piece.strokePath();
+            // Rim highlight
+            piece.lineStyle(3,0xffffff,0.35); piece.beginPath(); piece.moveTo(pts[5].x,pts[5].y); piece.lineTo(pts[0].x,pts[0].y); piece.lineTo(pts[1].x,pts[1].y); piece.strokePath();
+            // AO edge
+            piece.lineStyle(3,0x000000,0.22); piece.beginPath(); piece.moveTo(pts[2].x,pts[2].y); piece.lineTo(pts[3].x,pts[3].y); piece.lineTo(pts[4].x,pts[4].y); piece.strokePath();
+          }
+        });
+        // Pulse + glow
+        this.scene.tweens.add({ targets: piece, scale: { from:1, to:1.16 }, yoyo:true, duration:170, ease:'Quad.Out' });
+        const glow = this.scene.add.graphics();
+        glow.x = piece.x; glow.y = piece.y; glow.setDepth(9);
+        const rad = this.board.hexSize * 0.75;
+        glow.fillStyle(toColor,0.4); glow.fillCircle(0,0,rad*0.2);
+        this.scene.tweens.add({ targets: glow, scale: { from:1, to:2.2 }, alpha:{ from:0.6, to:0 }, duration:300, ease:'Quad.Out', onComplete:()=> glow.destroy() });
       }
     });
   }
@@ -270,8 +368,8 @@ export class GameManager {
   }
 
   skipTurn() {
-    // Allow only human to skip own turn
-    if (this.players[this.currentPlayer].isAI) return;
+    // Allow only human to skip own turn and only if game hasn't ended
+    if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
     this.clearHighlights();
     this.selectedPiece = null;
     this.endTurn();
@@ -318,8 +416,11 @@ export class GameManager {
   }
 
   _finalizeGame() {
+    this.gameEnded = true;
     const winner = this.getWinner();
     this.ui.showGameOver(winner);
+    this.ui.disableSkip(); // disable skip button when game ends
+    this.ui.addBackToMenuButton(() => this.scene.scene.start('MenuScene')); // add menu button
     // Disable input
     this.board.hexMap.forEach(hex => hex.getData('hit')?.disableInteractive?.());
     // Persist win if any

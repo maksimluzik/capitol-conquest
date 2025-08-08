@@ -14,7 +14,7 @@ export class UIManager {
     const w = this.scene.scale.width / 2;
     const h = this.scene.scale.height / 2;
     const txt = this.scene.add.text(w, h, `${name}' Turn`, {
-      fontSize: '48px', fontFamily: 'Arial', color: '#000', backgroundColor: '#ffffff', padding: { x: 24, y: 12 }, align: 'center'
+      fontSize: '32px', fontFamily: 'Arial', color: '#000', backgroundColor: 'rgba(255, 255, 255, 0.6)', padding: { x: 20, y: 10 }, align: 'center'
     }).setOrigin(0.5).setDepth(250).setAlpha(0);
     this.scene.tweens.add({ targets: txt, alpha: { from: 0, to: 1 }, duration: 100, yoyo: false });
     this.scene.time.delayedCall(700, () => {
@@ -54,4 +54,18 @@ export class UIManager {
   }
 
   disableSkip() { if (this.skipBtn) this.skipBtn.disableInteractive().setAlpha(0.4); }
+
+  addBackToMenuButton(onMenu) {
+    if (this.menuBtn) return this.menuBtn;
+    const w = this.scene.scale.width / 2;
+    const h = this.scene.scale.height / 2 + 80;
+    this.menuBtn = this.scene.add.text(w, h, 'Back to Menu', {
+      fontSize: '24px', fontFamily: 'Arial', color: '#ffffff', backgroundColor: '#0a3d91', 
+      padding: { x: 16, y: 8 }, align: 'center'
+    }).setOrigin(0.5).setDepth(210).setInteractive({ useHandCursor: true });
+    this.menuBtn.on('pointerover', () => this.menuBtn.setStyle({ backgroundColor: '#d94343' }));
+    this.menuBtn.on('pointerout', () => this.menuBtn.setStyle({ backgroundColor: '#0a3d91' }));
+    this.menuBtn.on('pointerdown', () => onMenu && onMenu());
+    return this.menuBtn;
+  }
 }
