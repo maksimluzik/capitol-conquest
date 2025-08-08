@@ -4,6 +4,8 @@ export class Board {
     this.scene = scene;
     this.size = options.size || 8; // radius in axial coords
     this.hexSize = options.hexSize || 30;
+    // Rotation in degrees applied to hex geometry only (does not alter spacing math)
+    this.rotationDeg = options.rotationDeg != null ? options.rotationDeg : 30; // user requested ~45°
     this.container = scene.add.layer();
     this.hexMap = new Map(); // key: "q,r" -> hex graphics object
   }
@@ -33,9 +35,11 @@ export class Board {
   drawHex(cx, cy, radius, fillColor) {
     const graphics = this.scene.add.graphics();
     const points = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = Phaser.Math.DegToRad(60 * i - 30);
-      points.push({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) });
+     const rot = Phaser.Math.DegToRad(this.rotationDeg);
+     // Draw hex with an additional rotation offset (visual only)
+     for (let i = 0; i < 6; i++) {
+       const angle = Phaser.Math.DegToRad(60 * i - 30) + rot;
+       points.push({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) });
     }
     // Gradient fill using a texture trick: draw solid first, then overlay highlight
     graphics.lineStyle(1, 0x333333, 1);
@@ -51,10 +55,10 @@ export class Board {
     graphics.fillStyle(0xffffff, 0.08);
     graphics.beginPath();
     const inset = radius * 0.85;
-    for (let i = 0; i < 6; i++) {
-      const angle = Phaser.Math.DegToRad(60 * i - 30);
-      const x = cx + inset * Math.cos(angle);
-      const y = cy + inset * Math.sin(angle);
+     for (let i = 0; i < 6; i++) {
+       const angle = Phaser.Math.DegToRad(60 * i - 30) + rot;
+       const x = cx + inset * Math.cos(angle);
+       const y = cy + inset * Math.sin(angle);
       if (i === 0) graphics.moveTo(x, y); else graphics.lineTo(x, y);
     }
     graphics.closePath();

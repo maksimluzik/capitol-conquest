@@ -62,3 +62,108 @@ Consider using Phaser's Graphics API to draw polygons with gradients for tokens 
 Alternatively, embed optimized SVG images or sprite sheets with visually richer pieces.
 
 Ensure tokens scale nicely with the board size and maintain consistent spacing.
+
+
+
+---
+
+
+Enhanced AI and UI Instructions:
+
+Improved Game-Ending Logic:
+
+Add robust game-over detection that triggers when either player has no pieces left on the board or no valid moves remaining.
+
+When the game ends, display a clear message announcing the winner (player or AI) or a draw if applicable.
+
+Disable further moves and highlight the final board state.
+
+Refined AI Move Strategy:
+
+Replace the current simple heuristic with a more nuanced decision-making process:
+
+Evaluate all valid moves and simulate the outcome.
+
+Score each move not just by immediate conversions but also by:
+
+Maximizing the player’s total piece count after the move.
+
+Minimizing risk of enabling opponent’s strong counter-moves (e.g., avoid moves that leave clusters vulnerable).
+
+Prefer moves that strategically control board areas (e.g., center dominance or blocking opponent expansion).
+
+Use a weighted scoring system combining these factors to select the best move.
+
+Introduce a small random factor or move variability to avoid predictable AI behavior.
+
+Ensure AI gracefully handles both duplication and jump moves.
+
+Polished Game Mode Selection Menu:
+
+Replace the current binary prompt with an interactive main menu scene featuring three options:
+
+Singleplayer: Player vs AI.
+
+Two-Player: Local multiplayer with two human players taking turns.
+
+Help: Display concise game rules, controls, and objectives.
+
+Highlight the selected menu option and allow navigation via keyboard or mouse.
+
+Animate transitions between menu and game scenes smoothly.
+
+Provide a clear way to return to the main menu from the game or help screen.
+
+Modular Integration and Documentation:
+
+Keep AI logic encapsulated in its own module/class, separated from UI and game state management.
+
+Integrate game-over checks into the main game loop or turn manager.
+
+Add comments explaining the AI scoring criteria and game-over triggers.
+
+Ensure menu UI code is separated from core gameplay logic for maintainability.
+
+Include hooks/events for switching between game modes and resetting game state.
+
+
+---
+
+
+Enhance the Phaser.js Hexxagon game with the following features:
+
+Persistent Score Storage:
+
+Store each player’s cumulative win count (for Republicans/red and Democrats/blue) in the browser’s localStorage.
+
+Update the stored scores immediately after each completed game (win/loss/draw).
+
+On game startup or when returning to the main menu, load and display the current cumulative scores prominently in the UI (e.g., in the menu or game HUD).
+
+Provide a way to reset stored scores via a menu option or button.
+
+Player Color Selection Before Single-Player:
+
+Before starting a single-player game, present the player with a choice screen to select their side:
+
+Choose Democrats (Blue)
+
+Choose Republicans (Red)
+
+The AI will automatically be assigned the opposite color.
+
+The selection UI should be visually clear and interactive, allowing selection by mouse or keyboard.
+
+After selection, proceed to start the single-player game with the chosen colors applied to the player and AI pieces accordingly.
+
+Reflect the chosen color scheme in the game visuals and UI indicators (e.g., current turn color).
+
+Integration Details:
+
+Keep the new score storage and player selection UI modular and separated from core game logic.
+
+Use Phaser scenes or UI overlays for the color selection and score display.
+
+Add comments documenting how scores are saved and loaded, and how player color selection affects the game state.
+
+Ensure that switching modes or restarting the game preserves or resets state appropriately.

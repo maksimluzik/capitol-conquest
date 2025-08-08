@@ -1,4 +1,5 @@
 // GameManager.js - game state, turns, move validation (AI handled internally)
+import { addWinByColor, loadScores } from './PersistentScores.js';
 
 export class GameManager {
   constructor(board, ui, scene, options = {}) {
@@ -9,10 +10,13 @@ export class GameManager {
       1: { id: 1, name: 'Republicans', color: 0xd94343, score: 0, isAI: false },
       2: { id: 2, name: 'Democrats', color: 0x3a52d9, score: 0, isAI: false }
     };
-    if (options.vsAI || options.mode === 'single') {
-      this.players[2].isAI = true; // Player 2 is AI in single-player mode
+    this.humanPlayerId = options.humanPlayerId || 1; // default human is player 1
+    if (options.mode === 'single' || options.vsAI) {
+      // Mark the non-human player as AI
+      this.players[1].isAI = (this.humanPlayerId !== 1);
+      this.players[2].isAI = (this.humanPlayerId !== 2);
     }
-    this.currentPlayer = 1;
+    this.currentPlayer = this.humanPlayerId; // human always starts
     this.selectedPiece = null;
     this.validMoves = [];
     this.tokenLayer = scene.add.layer();
@@ -91,7 +95,7 @@ export class GameManager {
   }
 
   onPieceDown(piece) {
-    if (this.players[this.currentPlayer].isAI) return;
+  if (this.players[this.currentPlayer].isAI) return;
     if (piece.data.values.player !== this.currentPlayer) return;
     if (this.selectedPiece === piece) return; // already selected
     this.clearHighlights();
@@ -255,10 +259,11 @@ export class GameManager {
   endTurn() {
     this.updateScores();
     this.ui.updateScores(this.players[1].score, this.players[2].score);
-    if (this.checkGameOver()) { this._finalizeGame(); return; }
+  if (this.checkGameOver()) { this._finalizeGame(); return; }
     this.currentPlayer = (this.currentPlayer === 1) ? 2 : 1;
     this.ui.updateTurn(this.players[this.currentPlayer].name);
-    if (this.scene.mode === 'single' && this.currentPlayer === 2 && this.scene.aiPlayer) {
+    this.ui.flashTurn(this.players[this.currentPlayer].name);
+  if (this.scene.mode === 'single' && this.players[this.currentPlayer].isAI && this.scene.aiPlayer) {
       // Let UI update before AI moves
       this.scene.time.delayedCall(350, () => this.aiTurn(), [], this);
     }
@@ -309,6 +314,12 @@ export class GameManager {
     this.ui.showGameOver(winner);
     // Disable input
     this.board.hexMap.forEach(hex => hex.getData('hit')?.disableInteractive?.());
+    // Persist win if any
+    if (winner) {
+      addWinByColor(winner.color);
+      const scores = loadScores();
+      this.ui.showCumulativeScores(scores);
+    }
   }
 
   aiTurn() {
