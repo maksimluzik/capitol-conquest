@@ -40,4 +40,18 @@ export class UIManager {
       { fontSize: '16px', fontFamily: 'Arial', color: '#222' })
       .setOrigin(1,0).setDepth(120);
   }
+
+  addSkipButton(onSkip) {
+    if (this.skipBtn) return this.skipBtn;
+    const y = 92;
+    this.skipBtn = this.scene.add.text(16, y, '[Skip Turn]', {
+      fontSize: '18px', fontFamily: 'Arial', color: '#0a3d91'
+    }).setDepth(100).setInteractive({ useHandCursor: true });
+    this.skipBtn.on('pointerover', () => this.skipBtn.setStyle({ color: '#d94343' }));
+    this.skipBtn.on('pointerout', () => this.skipBtn.setStyle({ color: '#0a3d91' }));
+    this.skipBtn.on('pointerdown', () => onSkip && onSkip());
+    return this.skipBtn;
+  }
+
+  disableSkip() { if (this.skipBtn) this.skipBtn.disableInteractive().setAlpha(0.4); }
 }

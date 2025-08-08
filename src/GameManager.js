@@ -269,6 +269,14 @@ export class GameManager {
     }
   }
 
+  skipTurn() {
+    // Allow only human to skip own turn
+    if (this.players[this.currentPlayer].isAI) return;
+    this.clearHighlights();
+    this.selectedPiece = null;
+    this.endTurn();
+  }
+
   hasMovesForPlayer(pid) {
     for (const hex of this.board.hexMap.values()) {
       const piece = hex.data.values.piece;

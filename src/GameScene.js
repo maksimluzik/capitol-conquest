@@ -2,7 +2,7 @@
 import { Board } from './Board.js';
 import { GameManager } from './GameManager.js';
 import { UIManager } from './UIManager.js';
-import { AIPlayer } from './AIPlayer.js';
+import { AI } from './AI.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() { super('GameScene'); }
@@ -32,12 +32,15 @@ export class GameScene extends Phaser.Scene {
     this.gameManager = new GameManager(this.board, this.ui, this, gmOptions);
     if (this.mode === 'single') {
       const aiId = this.playerChoice ? (this.playerChoice.playerId === 1 ? 2 : 1) : (gmOptions.humanPlayerId === 1 ? 2 : 1);
-      this.aiPlayer = new AIPlayer(aiId);
+  this.aiPlayer = new AI(aiId);
     }
     this.board.hexMap.forEach(hex => {
       const hitPoly = hex.getData('hit');
       hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
     });
     this.gameManager.setupInitialPieces();
+  // Add skip turn UI and keyboard shortcut
+  this.ui.addSkipButton(() => this.gameManager.skipTurn());
+  this.input.keyboard.on('keydown-S', () => this.gameManager.skipTurn());
   }
 }
