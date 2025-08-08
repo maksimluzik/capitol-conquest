@@ -1,11 +1,19 @@
 // GameManager.js - game state, turns, move validation (AI handled internally)
 import { addWinByColor, loadScores } from './PersistentScores.js';
+import { GlobalStats } from './GlobalStats.js';
 
 export class GameManager {
   constructor(board, ui, scene, options = {}) {
     this.board = board;
     this.ui = ui;
     this.scene = scene;
+    this.gameStartTime = Date.now(); // Track game duration
+    this.gameMode = options.mode || 'two'; // 'single' or 'two'
+    this.playerChoice = options.playerChoice || null; // For single player stats
+    
+    // Initialize global stats
+    this.globalStats = new GlobalStats();
+    this.globalStats.initialize();
     this.players = options.players || {
       1: { id: 1, name: 'Republicans', color: 0xdc2626, score: 0, isAI: false }, // Rich crimson red
       2: { id: 2, name: 'Democrats', color: 0x2563eb, score: 0, isAI: false }   // Royal blue
@@ -376,6 +384,44 @@ export class GameManager {
     this.endTurn();
   }
 
+  forfeitGame() {
+    // Allow only human to forfeit and only if game hasn't ended
+    if (this.gameEnded) return;
+    
+    // Clear any game state
+    this.clearHighlights();
+    this.selectedPiece = null;
+    
+    // Determine who forfeits (current human player)
+    const forfeitingPlayer = this.currentPlayer;
+    const winningPlayer = forfeitingPlayer === 1 ? 2 : 1;
+    
+    // Set game as ended
+    this.gameEnded = true;
+    
+    // Show forfeit message and winner
+    this.ui.flashTurn(`${this.players[forfeitingPlayer].name} Forfeited`);
+    
+    // Wait a moment then show game over
+    this.scene.time.delayedCall(1000, () => {
+      this.ui.showGameOver(this.players[winningPlayer]);
+      this.ui.disableSkip();
+      this.ui.addBackToMenuButton(() => this.scene.scene.start('MenuScene'));
+      
+      // Disable input
+      this.board.hexMap.forEach(hex => hex.getData('hit')?.disableInteractive?.());
+      
+      // Persist win to localStorage for cumulative scores
+      addWinByColor(this.players[winningPlayer].color);
+      const scores = loadScores();
+      this.ui.showCumulativeScores(scores);
+      
+      // Record forfeit as a loss for the forfeiting player
+      const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
+      this.recordGlobalStats(this.players[winningPlayer], gameDuration);
+    });
+  }
+
   hasMovesForPlayer(pid) {
     for (const hex of this.board.hexMap.values()) {
       const piece = hex.data.values.piece;
@@ -419,17 +465,58 @@ export class GameManager {
   _finalizeGame() {
     this.gameEnded = true;
     const winner = this.getWinner();
+    const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000); // Duration in seconds
+    
     this.ui.showGameOver(winner);
     this.ui.disableSkip(); // disable skip button when game ends
     this.ui.addBackToMenuButton(() => this.scene.scene.start('MenuScene')); // add menu button
+    
     // Disable input
     this.board.hexMap.forEach(hex => hex.getData('hit')?.disableInteractive?.());
+    
     // Persist win if any
     if (winner) {
       addWinByColor(winner.color);
       const scores = loadScores();
       this.ui.showCumulativeScores(scores);
     }
+    
+    // Record global statistics
+    this.recordGlobalStats(winner, gameDuration);
+  }
+
+  /**
+   * Record game result to global statistics
+   */
+  async recordGlobalStats(winner, gameDuration) {
+    try {
+      const gameResult = {
+        winner: winner ? winner.name : 'Draw',
+        gameMode: this.gameMode,
+        redScore: this.players[1].score,
+        blueScore: this.players[2].score,
+        gameDuration: gameDuration,
+        playerChoice: this.getPlayerChoice()
+      };
+
+      await this.globalStats.recordGameResult(gameResult);
+      console.log('Global stats updated successfully');
+    } catch (error) {
+      console.warn('Failed to update global stats:', error);
+    }
+  }
+
+  /**
+   * Determine player choice for single player mode
+   */
+  getPlayerChoice() {
+    if (this.gameMode !== 'single') return null;
+    
+    // Check which side the human is playing
+    if (this.humanPlayerId === 1) return 'red'; // Republican
+    if (this.humanPlayerId === 2) return 'blue'; // Democrat
+    
+    return null;
   }
 
   aiTurn() {

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Apps Script Endpoint</title>
+</head>
+<body>
+    <h1>Apps Script Endpoint Test</h1>
+    <div id="status">Ready to test...</div>
+    <div id="result"></div>
+    <button onclick="testAppsScript()">Test Apps Script Recording</button>
+    <button onclick="testFullIntegration()">Test Full Integration</button>
+    
+    <script type="module">
+        import { GlobalStats } from './src/GlobalStats.js';
+        
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+        
+        window.testAppsScript = async function() {
+            try {
+                statusDiv.innerHTML = 'Testing Apps Script endpoint directly...';
+                
+                const testData = {
+                    winner: 'Republicans',
+                    gameMode: 'single',
+                    redScore: 25,
+                    blueScore: 18,
+                    gameDuration: 145,
+                    playerChoice: 'red'
+                };
+                
+                const response = await fetch('https://script.google.com/macros/s/AKfycbxicZTTphEMFckFqG6JPBjgF1KHa8zWRTqEMtq2DwUz9ftqru9UqTWfSBZGMRB_FjGX/exec', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = '✅ Apps Script test successful!';
+                    resultDiv.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+                } else {
+                    statusDiv.innerHTML = '❌ Apps Script returned error';
+                    resultDiv.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = '❌ Apps Script test failed';
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+                console.error(error);
+            }
+        };
+        
+        window.testFullIntegration = async function() {
+            try {
+                statusDiv.innerHTML = 'Testing full GlobalStats integration...';
+                
+                const globalStats = new GlobalStats();
+                
+                const testGameResult = {
+                    winner: 'Democrats',
+                    gameMode: 'two',
+                    redScore: 22,
+                    blueScore: 26,
+                    gameDuration: 203,
+                    playerChoice: 'blue'
+                };
+                
+                const success = await globalStats.recordGameResult(testGameResult);
+                
+                if (success) {
+                    statusDiv.innerHTML = '✅ Full integration test successful!';
+                    resultDiv.innerHTML = '<p>Game result recorded successfully via GlobalStats class</p>';
+                    
+                    // Now test reading the data back
+                    statusDiv.innerHTML = '✅ Recording successful, now testing read...';
+                    const stats = await globalStats.getGlobalStatistics();
+                    
+                    resultDiv.innerHTML += `
+                        <h3>Latest Statistics:</h3>
+                        <p>Total Games: ${stats.totalGames}</p>
+                        <p>Republican Wins: ${stats.republicanWins}</p>
+                        <p>Democrat Wins: ${stats.democratWins}</p>
+                        <p>Recent Games: ${stats.recentGames.length}</p>
+                    `;
+                    statusDiv.innerHTML = '✅ Full integration test completed!';
+                } else {
+                    statusDiv.innerHTML = '❌ Full integration test failed';
+                    resultDiv.innerHTML = '<p>Failed to record game result</p>';
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = '❌ Full integration test failed';
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+                console.error(error);
+            }
+        };
+    </script>
+</body>
+</html>

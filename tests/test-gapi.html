@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Google API Integration</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+    <h1>Google Sheets API Test</h1>
+    <div id="status">Initializing...</div>
+    <div id="result"></div>
+    <button id="testBtn" onclick="testAPI()" disabled>Test API</button>
+    
+    <script type="module">
+        import { GlobalStats } from '../src/GlobalStats.js';
+        
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+        const testBtn = document.getElementById('testBtn');
+        
+        let globalStats;
+        
+        async function initializeAPI() {
+            try {
+                statusDiv.innerHTML = 'Creating GlobalStats instance...';
+                globalStats = new GlobalStats();
+                
+                statusDiv.innerHTML = 'Initializing Google Sheets API...';
+                const initialized = await globalStats.initialize();
+                
+                if (initialized) {
+                    statusDiv.innerHTML = '✅ API initialized successfully!';
+                    testBtn.disabled = false;
+                } else {
+                    statusDiv.innerHTML = '❌ Failed to initialize API';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '❌ Error: ' + error.message;
+                console.error(error);
+            }
+        }
+        
+        window.testAPI = async function() {
+            try {
+                statusDiv.innerHTML = 'Testing API connection...';
+                
+                // Test reading data
+                const stats = await globalStats.getGlobalStatistics();
+                
+                statusDiv.innerHTML = '✅ API test successful!';
+                resultDiv.innerHTML = `
+                    <h3>Statistics:</h3>
+                    <p>Total Games: ${stats.totalGames}</p>
+                    <p>Republican Wins: ${stats.republicanWins}</p>
+                    <p>Democrat Wins: ${stats.democratWins}</p>
+                    <p>Draws: ${stats.draws}</p>
+                `;
+                
+                // Test recording a sample game (optional)
+                const sampleGame = {
+                    winner: 'Republicans',
+                    gameMode: 'single',
+                    redScore: 25,
+                    blueScore: 20,
+                    gameDuration: 180,
+                    playerChoice: 'red'
+                };
+                
+                const recorded = await globalStats.recordGameResult(sampleGame);
+                if (recorded) {
+                    resultDiv.innerHTML += '<p>✅ Sample game recorded successfully!</p>';
+                } else {
+                    resultDiv.innerHTML += '<p>❌ Failed to record sample game</p>';
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = '❌ API test failed: ' + error.message;
+                console.error(error);
+            }
+        };
+        
+        // Initialize when page loads
+        initializeAPI();
+    </script>
+</body>
+</html>

@@ -20,7 +20,10 @@ export class GameScene extends Phaser.Scene {
     this.board = new Board(this, { size: 5, hexSize: 36 });
     this.board.generate();
     this.ui = new UIManager(this);
-    const gmOptions = { mode: this.mode };
+    const gmOptions = { 
+      mode: this.mode,
+      playerChoice: this.playerChoice // Pass player choice for global stats
+    };
     // Override player colors if choice present
     if (this.playerChoice && this.mode === 'single') {
       gmOptions.players = {
@@ -41,8 +44,9 @@ export class GameScene extends Phaser.Scene {
       }
     });
     this.gameManager.setupInitialPieces();
-  // Add skip turn UI and keyboard shortcut
-  this.ui.addSkipButton(() => this.gameManager.skipTurn());
+  // Add skip turn UI and forfeit functionality
+  this.ui.addSkipButton(() => this.gameManager.skipTurn(), () => this.gameManager.forfeitGame());
   this.input.keyboard.on('keydown-S', () => this.gameManager.skipTurn());
+  this.input.keyboard.on('keydown-F', () => this.gameManager.forfeitGame()); // F key for forfeit
   }
 }
