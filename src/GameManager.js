@@ -443,10 +443,20 @@ export class GameManager {
   }
 
   boardFull() {
-    for (const hex of this.board.hexMap.values()) {
-      if (!hex.data.values.piece) return false;
-    }
-    return true;
+    let occupiedCount = 0;
+    let playableCount = 0;
+    
+    this.board.forEachHex(hex => {
+      const isBlocked = hex.data.values.blocked;
+      if (!isBlocked) {
+        playableCount++;
+        if (hex.data.values.piece) {
+          occupiedCount++;
+        }
+      }
+    });
+    
+    return occupiedCount === playableCount;
   }
 
   checkGameOver() {

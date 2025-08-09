@@ -5,8 +5,8 @@ export class GlobalStats {
   constructor() {
     this.SPREADSHEET_ID = Config.API.SPREADSHEET_ID;
     this.API_KEY = Config.API.GOOGLE_SHEETS_API_KEY;
-    this.SHEET_NAME = 'GameStats'; // Default sheet name
-    this.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxicZTTphEMFckFqG6JPBjgF1KHa8zWRTqEMtq2DwUz9ftqru9UqTWfSBZGMRB_FjGX/exec';
+    this.SHEET_NAME = Config.API.SHEET_NAME;
+    this.APPS_SCRIPT_URL = Config.API.APPS_SCRIPT_URL;
     this.isInitialized = false;
     this.initPromise = null;
   }

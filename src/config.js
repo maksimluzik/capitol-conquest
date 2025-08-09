@@ -54,7 +54,9 @@ export const Config = {
   // API Configuration
   API: {
     GOOGLE_SHEETS_API_KEY: 'AIzaSyDJEnSYiNtr9FJZEPV1h7Fd6dioubP5GuY',
-    SPREADSHEET_ID: '1RoWR5JqjiZSerZ6yXQ-h8MxnHFSkeiQRUK4dW8JmpQ4'
+    SPREADSHEET_ID: '1RoWR5JqjiZSerZ6yXQ-h8MxnHFSkeiQRUK4dW8JmpQ4',
+    SHEET_NAME: 'GameStats',
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxicZTTphEMFckFqG6JPBjgF1KHa8zWRTqEMtq2DwUz9ftqru9UqTWfSBZGMRB_FjGX/exec'
   },
   
   // Helper function to create text style objects
