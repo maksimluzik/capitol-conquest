@@ -266,6 +266,11 @@ export class GameManager {
     const oldR = this.selectedPiece.data.values.r;
 
     if (move.type === 'jump') {
+      // Play jump sound
+      if (this.scene.playJumpSound) {
+        this.scene.playJumpSound();
+      }
+      
       // Animate jump movement along an arced path then finalize at destination
       const movingPiece = this.selectedPiece;
       const oldHex = this.board.getHex(oldQ, oldR);
@@ -300,6 +305,11 @@ export class GameManager {
       });
       return; // defer endTurn until animation complete
     } else {
+      // Play move sound for duplicate
+      if (this.scene.playMoveSound) {
+        this.scene.playMoveSound();
+      }
+      
       // Duplicate: spawn new piece with scale-in animation
       this.addPiece(move.q, move.r, player, { animateSpawn: true });
       this.convertAdjacent(move.q, move.r, player);
@@ -312,9 +322,12 @@ export class GameManager {
 
   convertAdjacent(q, r, player) {
     // Color tween + pulse existing piece rather than destroy/recreate instantly.
+    let hasConversions = false;
+    
     this.directionsDuplicate().forEach(([dq, dr]) => {
       const hex = this.board.getHex(q + dq, r + dr);
       if (hex && hex.data.values.piece && hex.data.values.piece.data.values.player !== player) {
+        hasConversions = true;
         const piece = hex.data.values.piece;
         const fromColor = this.players[piece.data.values.player].color;
         const toColor = this.players[player].color;
@@ -353,6 +366,11 @@ export class GameManager {
         this.scene.tweens.add({ targets: glow, scale: { from:1, to:2.2 }, alpha:{ from:0.6, to:0 }, duration:300, ease:'Quad.Out', onComplete:()=> glow.destroy() });
       }
     });
+    
+    // Play convert sound if any pieces were converted
+    if (hasConversions && this.scene.playConvertSound) {
+      this.scene.playConvertSound();
+    }
   }
 
   updateScores() {

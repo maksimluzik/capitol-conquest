@@ -47,6 +47,9 @@ export class GlobalStatsScene extends Phaser.Scene {
     backBtn.on('pointerdown', () => this.scene.start('MenuScene'));
     backBtn.on('pointerover', () => backBtn.setStyle({ color: Config.COLORS.TEXT_BRIGHT_GOLD }));
     backBtn.on('pointerout', () => backBtn.setStyle({ color: Config.COLORS.TEXT_CYAN }));
+    
+    // Add music toggle
+    this.addMusicToggle(w);
   }
 
   async loadGlobalStats() {
@@ -203,5 +206,35 @@ export class GlobalStatsScene extends Phaser.Scene {
 
   getPercentage(value, total) {
     return total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+  }
+
+  addMusicToggle(w) {
+    if (!this.game.music) return;
+    
+    const musicIcon = this.game.music.isPlaying ? '🎵' : '🔇';
+    
+    this.musicToggle = this.add.text(w - 20, 20, musicIcon, 
+      Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE)
+    ).setOrigin(1, 0).setInteractive({ useHandCursor: true }).setDepth(200);
+    
+    this.musicToggle.on('pointerdown', () => this.toggleMusic());
+    this.musicToggle.on('pointerover', () => this.musicToggle.setScale(1.2));
+    this.musicToggle.on('pointerout', () => this.musicToggle.setScale(1.0));
+  }
+  
+  toggleMusic() {
+    if (!this.game.music?.background) return;
+    
+    this.game.music.isPlaying = !this.game.music.isPlaying;
+    
+    if (this.game.music.isPlaying) {
+      this.game.music.background.play();
+      this.musicToggle.setText('🎵');
+    } else {
+      this.game.music.background.pause();
+      this.musicToggle.setText('🔇');
+    }
+    
+    localStorage.setItem('musicEnabled', this.game.music.isPlaying.toString());
   }
 }

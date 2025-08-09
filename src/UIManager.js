@@ -4,8 +4,8 @@ import { Config } from './config.js';
 export class UIManager {
   constructor(scene) {
     this.scene = scene;
-    this.turnText = scene.add.text(16, 16, '', Config.textStyle('22px', Config.COLORS.TEXT_WHITE)).setDepth(100);
-    this.scoreText = scene.add.text(16, 48, '', Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_WHITE)).setDepth(100);
+    this.turnText = scene.add.text(16, 16, '', Config.textStyle('22px', Config.COLORS.TEXT_DARK)).setDepth(100);
+    this.scoreText = scene.add.text(16, 48, '', Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_DARK)).setDepth(100);
     this.gameOverText = null;
   }
 
@@ -47,10 +47,10 @@ export class UIManager {
     if (this.skipBtn) return this.skipBtn;
     const y = 92;
     this.skipBtn = this.scene.add.text(16, y, '[Skip Turn]',
-      Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_CYAN)
+      Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_SILVER)
     ).setDepth(100).setInteractive({ useHandCursor: true });
-    this.skipBtn.on('pointerover', () => this.skipBtn.setStyle({ color: Config.COLORS.TEXT_BRIGHT_GOLD }));
-    this.skipBtn.on('pointerout', () => this.skipBtn.setStyle({ color: Config.COLORS.TEXT_CYAN }));
+    this.skipBtn.on('pointerover', () => this.skipBtn.setStyle({ color: Config.COLORS.TEXT_WHITE }));
+    this.skipBtn.on('pointerout', () => this.skipBtn.setStyle({ color: Config.COLORS.TEXT_SILVER }));
     this.skipBtn.on('pointerdown', () => onSkip && onSkip());
     
     // Add forfeit button below skip button

@@ -48,7 +48,11 @@ export const Config = {
   
   // Assets
   ASSETS: {
-    SPLASH_IMAGE: 'assets/capitol-conquest-splash_square.png'
+    SPLASH_IMAGE: 'assets/capitol-conquest-splash_square.png',
+    BACKGROUND_MUSIC: 'sounds/music.mp3',
+    PIECE_MOVE_SOUND: 'sounds/piece-move.mp3',
+    PIECE_JUMP_SOUND: 'sounds/piece-jump.mp3',
+    CONVERT_SOUND: 'sounds/convert.mp3'
   },
   
   // API Configuration

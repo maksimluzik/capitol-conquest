@@ -68,27 +68,34 @@ export class GlobalStats {
     } = gameResult;
 
     try {
-      // Use Apps Script proxy endpoint for recording data
+      // Use FormData to avoid CORS preflight (no OPTIONS request)
+      const formData = new FormData();
+      formData.append('winner', winner);
+      formData.append('gameMode', gameMode);
+      formData.append('redScore', redScore.toString());
+      formData.append('blueScore', blueScore.toString());
+      formData.append('gameDuration', (gameDuration || 0).toString());
+      formData.append('playerChoice', playerChoice || 'N/A');
+
+      console.log('Sending form data to Apps Script:', gameResult);
+
       const response = await fetch(this.APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          winner,
-          gameMode,
-          redScore,
-          blueScore,
-          gameDuration: gameDuration || 0,
-          playerChoice: playerChoice || 'N/A'
-        })
+        // No Content-Type header - let browser set it automatically for FormData
+        body: formData
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`Apps Script request failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Apps Script error response:', errorText);
+        throw new Error(`Apps Script request failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('Apps Script response:', result);
+      
       if (result.error) {
         throw new Error(`Apps Script error: ${result.error}`);
       }
@@ -186,17 +193,18 @@ export class GlobalStats {
       stats.totalScore.blue += parseInt(blueScore) || 0;
       totalDuration += parseInt(duration) || 0;
 
-      // Store recent games (last 10)
-      if (index < 10) {
-        stats.recentGames.push({
-          date: new Date(date).toLocaleDateString(),
-          winner,
-          gameMode,
-          scores: `${redScore}-${blueScore}`,
-          duration: this.formatDuration(parseInt(duration) || 0)
-        });
-      }
+      // Store all games for recent games processing
+      stats.recentGames.push({
+        date: new Date(date).toLocaleDateString(),
+        winner,
+        gameMode,
+        scores: `${redScore}-${blueScore}`,
+        duration: this.formatDuration(parseInt(duration) || 0)
+      });
     });
+
+    // Reverse to show latest games first and limit to 10
+    stats.recentGames = stats.recentGames.reverse().slice(0, 10);
 
     // Calculate averages and rates
     stats.averageGameDuration = totalDuration / rows.length;
