@@ -110,12 +110,18 @@ export class GameManager {
       ? [
           { q: -s+1, r: 0 }, { q: -s, r: 1 }, { q: 0, r: -s+1 },
           { q: -1, r: -s }, { q: -s+1, r: s-1 }, { q: -s, r: s-1 },
-          { q: -s+2, r: 0 }, { q: 0, r: -s+2 }, { q: -s+2, r: s-2 }
+          { q: -s+2, r: 0 }, { q: 0, r: -s+2 }, { q: -s+2, r: s-2 },
+          // Additional strategic positions
+          { q: -s+3, r: 0 }, { q: 0, r: -s+3 }, { q: -s+3, r: s-3 },
+          { q: -s+1, r: 1 }, { q: -1, r: -s+1 }, { q: -s+1, r: s-2 }
         ]
       : [
           { q: s-1, r: 0 }, { q: s, r: -1 }, { q: 0, r: s-1 },
           { q: 1, r: s }, { q: s-1, r: -s+1 }, { q: s, r: -s+1 },
-          { q: s-2, r: 0 }, { q: 0, r: s-2 }, { q: s-2, r: -s+2 }
+          { q: s-2, r: 0 }, { q: 0, r: s-2 }, { q: s-2, r: -s+2 },
+          // Additional strategic positions
+          { q: s-3, r: 0 }, { q: 0, r: s-3 }, { q: s-3, r: -s+3 },
+          { q: s-1, r: -1 }, { q: 1, r: s-1 }, { q: s-1, r: -s+2 }
         ];
     
     // Filter valid positions and add them
@@ -124,6 +130,31 @@ export class GameManager {
       const hex = this.board.getHex(pos.q, pos.r);
       if (hex && !hex.data.values.piece && !this.board.isBlocked(pos.q, pos.r)) {
         positions.push(pos);
+      }
+    }
+    
+    // If we still don't have enough positions, generate random valid ones
+    if (positions.length < count) {
+      const allValidPositions = [];
+      
+      // Collect all valid hexes on the board
+      this.board.hexMap.forEach((hex, key) => {
+        const [q, r] = key.split(',').map(Number);
+        if (!hex.data.values.piece && !this.board.isBlocked(q, r)) {
+          allValidPositions.push({ q, r });
+        }
+      });
+      
+      // Shuffle and add remaining positions needed
+      const shuffled = allValidPositions.sort(() => Math.random() - 0.5);
+      const needed = count - positions.length;
+      
+      for (let i = 0; i < shuffled.length && positions.length < count; i++) {
+        const pos = shuffled[i];
+        // Make sure this position isn't already in our list
+        if (!positions.some(p => p.q === pos.q && p.r === pos.r)) {
+          positions.push(pos);
+        }
       }
     }
     

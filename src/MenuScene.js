@@ -432,8 +432,8 @@ export class ColorSelectScene extends Phaser.Scene {
     
     const difficultyOptions = [
       { label:`Normal (Equal Start)`, ...Config.DIFFICULTY.LEVELS.NORMAL },
-      { label:`Hard (AI starts with ${Config.DIFFICULTY.LEVELS.HARD.aiPieceMultiplier} pieces)`, ...Config.DIFFICULTY.LEVELS.HARD },
-      { label:`Expert (AI starts with ${Config.DIFFICULTY.LEVELS.EXPERT.aiPieceMultiplier} pieces)`, ...Config.DIFFICULTY.LEVELS.EXPERT }
+      { label:`Hard (AI starts with ${Config.DIFFICULTY.LEVELS.HARD.aiPieceMultiplier}x pieces)`, ...Config.DIFFICULTY.LEVELS.HARD },
+      { label:`Expert (AI starts with ${Config.DIFFICULTY.LEVELS.EXPERT.aiPieceMultiplier}x pieces)`, ...Config.DIFFICULTY.LEVELS.EXPERT }
     ];
     
     // Store difficulty text objects for updating checkboxes
