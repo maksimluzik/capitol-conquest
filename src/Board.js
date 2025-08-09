@@ -1,15 +1,26 @@
 // Board.js - hex grid creation and management with procedural blocked hexes
+import { Config } from './config.js';
+
 export class Board {
   constructor(scene, options) {
     this.scene = scene;
     this.size = options.size || 8; // radius in axial coords
-    this.hexSize = options.hexSize || 30;
+    
+    // Responsive hex size based on device
+    const layout = Config.DEVICE.getMobileLayout(scene);
+    this.hexSize = layout.isMobile ? 
+      Math.max(20, (options.hexSize || 30) * layout.scale) : 
+      (options.hexSize || 30);
+    
     // Rotation in degrees applied to hex geometry only (does not alter spacing math)
     this.rotationDeg = options.rotationDeg != null ? options.rotationDeg : 30; // user requested ~45°
     this.container = scene.add.layer();
     this.hexMap = new Map(); // key: "q,r" -> hex graphics object
     this.blockedHexes = new Set(); // Set of "q,r" keys for blocked hexes
     this.blockedPercentage = options.blockedPercentage || 0.10; // 10% blocked by default
+    
+    // Store layout info for later use
+    this.layout = layout;
   }
 
   axialKey(q, r) { return `${q},${r}`; }

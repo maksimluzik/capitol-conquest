@@ -4,8 +4,16 @@ import { Config } from './config.js';
 export class UIManager {
   constructor(scene) {
     this.scene = scene;
-    this.turnText = scene.add.text(16, 16, '', Config.textStyle('22px', Config.COLORS.TEXT_DARK)).setDepth(100);
-    this.scoreText = scene.add.text(16, 48, '', Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_DARK)).setDepth(100);
+    this.layout = Config.DEVICE.getMobileLayout(scene);
+    
+    // Responsive text positioning and sizing
+    const fontSize = this.layout.isMobile ? '18px' : '22px';
+    const padding = this.layout.padding;
+    
+    this.turnText = scene.add.text(padding, padding, '', Config.textStyle(fontSize, Config.COLORS.TEXT_DARK)).setDepth(100);
+    this.scoreText = scene.add.text(padding, padding + (this.layout.isMobile ? 32 : 48), '', 
+      Config.textStyle(this.layout.isMobile ? Config.FONT_SIZES.MINI : Config.FONT_SIZES.TINY, Config.COLORS.TEXT_DARK)
+    ).setDepth(100);
     this.gameOverText = null;
   }
 
@@ -15,8 +23,15 @@ export class UIManager {
   flashTurn(name) {
     const w = this.scene.scale.width / 2;
     const h = this.scene.scale.height / 2;
+    const fontSize = this.layout.isMobile ? '24px' : '32px';
+    const padding = this.layout.isMobile ? { x: 12, y: 6 } : { x: 20, y: 10 };
+    
     const txt = this.scene.add.text(w, h, `${name}' Turn`,
-      Config.textStyle('32px', Config.COLORS.TEXT_DARK, { backgroundColor: 'rgba(255, 255, 255, 0.9)', padding: { x: 20, y: 10 }, align: 'center' })
+      Config.textStyle(fontSize, Config.COLORS.TEXT_DARK, { 
+        backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+        padding: padding, 
+        align: 'center' 
+      })
     ).setOrigin(0.5).setDepth(250).setAlpha(0);
     this.scene.tweens.add({ targets: txt, alpha: { from: 0, to: 1 }, duration: 100, yoyo: false });
     this.scene.time.delayedCall(700, () => {

@@ -30,8 +30,11 @@ export class MenuScene extends Phaser.Scene {
     // Initialize background music
     this.initializeMusic();
     
+    // Get responsive layout
+    const layout = Config.DEVICE.getMobileLayout(this);
+    
     // Create stylish title with enhanced visual effects
-    this.createStylishTitle(w, h);
+    this.createStylishTitle(w, h, layout);
     
     const options = [
       { label:'Single Player (vs AI)', mode:'single' },
@@ -42,10 +45,14 @@ export class MenuScene extends Phaser.Scene {
     ];
     this.items = [];
     options.forEach((o,i)=>{
-      const t = this.add.text(w/2, h/2 + i*60 - 20, o.label, 
-        Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE, {
+      const fontSize = layout.isMobile ? Config.FONT_SIZES.SMALL : Config.FONT_SIZES.MEDIUM;
+      const spacing = layout.buttonSpacing;
+      const padding = { x: layout.padding, y: layout.padding / 2 };
+      
+      const t = this.add.text(w/2, h/2 + i*spacing - 20, o.label, 
+        Config.textStyle(fontSize, Config.COLORS.TEXT_WHITE, {
           backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          padding: { x: 16, y: 8 },
+          padding: padding,
           borderRadius: 8
         })
       ).setOrigin(0.5).setInteractive({ useHandCursor:true });
@@ -114,19 +121,21 @@ export class MenuScene extends Phaser.Scene {
       Config.textStyle(Config.FONT_SIZES.SMALL, Config.COLORS.TEXT_LIGHT_BLUE)).setOrigin(0.5).setDepth(50);
   }
 
-  createStylishTitle(w, h) {
-    const titleY = h/2 - 140;
+  createStylishTitle(w, h, layout) {
+    const titleY = h/2 - (layout.isMobile ? 100 : 140);
+    const titleSize = layout.isMobile ? '36px' : '58px';
+    const glowSize = layout.isMobile ? '40px' : '62px';
     
     // Create shadow layer (multiple shadows for depth)
-    this.add.text(w/2 + 4, titleY + 6, 'Capitol Conquest', 
-      Config.textStyle('58px', '#000000', { 
+    this.add.text(w/2 + (layout.isMobile ? 2 : 4), titleY + (layout.isMobile ? 3 : 6), 'Capitol Conquest', 
+      Config.textStyle(titleSize, '#000000', { 
         fontWeight: 'bold',
         fontFamily: 'serif'
       })
     ).setOrigin(0.5).setDepth(10).setAlpha(0.3);
     
-    this.add.text(w/2 + 2, titleY + 3, 'Capitol Conquest', 
-      Config.textStyle('58px', '#000000', { 
+    this.add.text(w/2 + (layout.isMobile ? 1 : 2), titleY + (layout.isMobile ? 1.5 : 3), 'Capitol Conquest', 
+      Config.textStyle(titleSize, '#000000', { 
         fontWeight: 'bold',
         fontFamily: 'serif'
       })
@@ -134,17 +143,17 @@ export class MenuScene extends Phaser.Scene {
     
     // Create main title with gradient-like effect using stroke
     const mainTitle = this.add.text(w/2, titleY, 'Capitol Conquest', 
-      Config.textStyle('58px', Config.COLORS.TEXT_BRIGHT_GOLD, {
+      Config.textStyle(titleSize, Config.COLORS.TEXT_BRIGHT_GOLD, {
         fontWeight: 'bold',
         fontFamily: 'serif',
         stroke: '#8B4513',
-        strokeThickness: 3
+        strokeThickness: layout.isMobile ? 2 : 3
       })
     ).setOrigin(0.5).setDepth(12);
     
     // Add highlight effect
-    this.add.text(w/2, titleY - 1, 'Capitol Conquest', 
-      Config.textStyle('58px', '#FFFFFF', {
+    this.add.text(w/2, titleY - (layout.isMobile ? 0.5 : 1), 'Capitol Conquest', 
+      Config.textStyle(titleSize, '#FFFFFF', {
         fontWeight: 'bold',
         fontFamily: 'serif',
         stroke: '#FFD700',
@@ -154,7 +163,7 @@ export class MenuScene extends Phaser.Scene {
     
     // Add subtle glow effect with animated pulse
     const glowTitle = this.add.text(w/2, titleY, 'Capitol Conquest', 
-      Config.textStyle('62px', Config.COLORS.TEXT_BRIGHT_GOLD, {
+      Config.textStyle(glowSize, Config.COLORS.TEXT_BRIGHT_GOLD, {
         fontWeight: 'bold',
         fontFamily: 'serif'
       })
@@ -240,6 +249,7 @@ export class HelpScene extends Phaser.Scene {
   
   create(){
     const w = this.scale.width; const h = this.scale.height;
+    const layout = Config.DEVICE.getMobileLayout(this);
     
     // Add background image
     const bg = this.add.image(w/2, h/2, 'splash');
@@ -252,8 +262,10 @@ export class HelpScene extends Phaser.Scene {
     this.add.rectangle(w/2, h/2, w, h, Config.COLORS.OVERLAY_DARK, 0.8);
     
     // Title
-    this.add.text(w/2, 40, '🏛️ How to Play Capitol Conquest', 
-      Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_BRIGHT_GOLD)
+    const titleY = layout.isMobile ? 30 : 40;
+    const titleSize = layout.isMobile ? Config.FONT_SIZES.MEDIUM : Config.FONT_SIZES.LARGE;
+    this.add.text(w/2, titleY, '🏛️ How to Play Capitol Conquest', 
+      Config.textStyle(titleSize, Config.COLORS.TEXT_BRIGHT_GOLD)
     ).setOrigin(0.5);
     
     // Game rules with emojis
@@ -302,16 +314,21 @@ Player with the most pieces on the board wins!
     this.scrollY = 0;
     this.maxScrollY = 0;
     
-    // Create the rules text
-    this.rulesTextObj = this.add.text(50, 120, rulesText, 
-      Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_WHITE, { 
-        wordWrap: { width: w - 100 },
-        lineSpacing: 5
+    // Create the rules text with mobile-responsive sizing
+    const textX = layout.isMobile ? 20 : 50;
+    const textY = layout.isMobile ? 80 : 120;
+    const textWidth = layout.isMobile ? w - 40 : w - 100;
+    const fontSize = layout.isMobile ? 12 : Config.FONT_SIZES.TINY;
+    
+    this.rulesTextObj = this.add.text(textX, textY, rulesText, 
+      Config.textStyle(fontSize, Config.COLORS.TEXT_WHITE, { 
+        wordWrap: { width: textWidth },
+        lineSpacing: layout.isMobile ? 3 : 5
       })
     );
     
     // Calculate max scroll based on content that goes below visible area
-    const visibleAreaBottom = h - 50; // Leave some space at bottom
+    const visibleAreaBottom = h - (layout.isMobile ? 30 : 50); // Leave some space at bottom
     const textBottom = this.rulesTextObj.y + this.rulesTextObj.height;
     this.maxScrollY = Math.max(0, textBottom - visibleAreaBottom);
     
@@ -319,12 +336,15 @@ Player with the most pieces on the board wins!
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
       this.scrollY += deltaY * 0.5;
       this.scrollY = Phaser.Math.Clamp(this.scrollY, 0, this.maxScrollY);
-      this.rulesTextObj.y = 120 - this.scrollY;
+      this.rulesTextObj.y = textY - this.scrollY;
     });
     
-    // Back button (similar to GlobalStatsScene)
-    const backBtn = this.add.text(40, 40, '← Back', 
-      Config.textStyle(Config.FONT_SIZES.SMALL, Config.COLORS.TEXT_CYAN)
+    // Back button (similar to GlobalStatsScene) with mobile positioning
+    const backBtnX = layout.isMobile ? 30 : 40;
+    const backBtnY = layout.isMobile ? 30 : 40;
+    const backBtnSize = layout.isMobile ? 14 : Config.FONT_SIZES.SMALL;
+    const backBtn = this.add.text(backBtnX, backBtnY, '← Back', 
+      Config.textStyle(backBtnSize, Config.COLORS.TEXT_CYAN)
     ).setInteractive({ useHandCursor: true });
     
     backBtn.on('pointerdown', () => this.scene.start('MenuScene'));
@@ -345,6 +365,7 @@ export class ColorSelectScene extends Phaser.Scene {
   
   create(){
     const w = this.scale.width; const h = this.scale.height;
+    const layout = Config.DEVICE.getMobileLayout(this);
     
     // Add background image
     const bg = this.add.image(w/2, h/2, 'splash');
@@ -356,7 +377,9 @@ export class ColorSelectScene extends Phaser.Scene {
     // Add semi-transparent overlay
     this.add.rectangle(w/2, h/2, w, h, Config.COLORS.OVERLAY_DARK, 0.3);
     
-    this.add.text(w/2, h/2 - 160, 'Choose Your Side', Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_WHITE)).setOrigin(0.5);
+    const titleOffset = layout.isMobile ? -120 : -160;
+    const titleSize = layout.isMobile ? Config.FONT_SIZES.MEDIUM : Config.FONT_SIZES.LARGE;
+    this.add.text(w/2, h/2 + titleOffset, 'Choose Your Side', Config.textStyle(titleSize, Config.COLORS.TEXT_WHITE)).setOrigin(0.5);
     
     // Color options
     const colorOptions = [
@@ -365,10 +388,14 @@ export class ColorSelectScene extends Phaser.Scene {
     ];
     
     colorOptions.forEach((o,i)=>{
-      const t = this.add.text(w/2, h/2 + i*60 - 80, o.label, 
-        Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE, {
+      const fontSize = layout.isMobile ? Config.FONT_SIZES.SMALL : Config.FONT_SIZES.MEDIUM;
+      const spacing = layout.isMobile ? 45 : 60;
+      const yOffset = layout.isMobile ? -60 : -80;
+      
+      const t = this.add.text(w/2, h/2 + i*spacing + yOffset, o.label, 
+        Config.textStyle(fontSize, Config.COLORS.TEXT_WHITE, {
           backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          padding: { x: 16, y: 8 },
+          padding: { x: layout.padding, y: layout.padding / 2 },
           borderRadius: 8
         })
       ).setOrigin(0.5).setInteractive({ useHandCursor:true });
@@ -385,7 +412,11 @@ export class ColorSelectScene extends Phaser.Scene {
     });
     
     // Difficulty selection
-    this.add.text(w/2, h/2 + 50, 'Choose Difficulty Level', Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE)).setOrigin(0.5);
+    const difficultyTitleY = layout.isMobile ? h/2 + 30 : h/2 + 50;
+    const difficultyTitleSize = layout.isMobile ? Config.FONT_SIZES.SMALL : Config.FONT_SIZES.MEDIUM;
+    this.add.text(w/2, difficultyTitleY, 'Choose Difficulty Level', 
+      Config.textStyle(difficultyTitleSize, Config.COLORS.TEXT_WHITE)
+    ).setOrigin(0.5);
     
     const difficultyOptions = [
       { label:'Normal (Equal Start)', ...Config.DIFFICULTY.LEVELS.NORMAL },
@@ -402,8 +433,12 @@ export class ColorSelectScene extends Phaser.Scene {
       const checkboxText = (isPreselected ? '☑️ ' : '☐ ') + o.label;
       const textColor = isPreselected ? Config.COLORS.TEXT_GOLD : Config.COLORS.TEXT_WHITE;
       
-      const t = this.add.text(w/2, h/2 + i*50 + 80, checkboxText, 
-        Config.textStyle(Config.FONT_SIZES.SMALL, textColor)
+      const difficultySpacing = layout.isMobile ? 35 : 50;
+      const difficultyStartY = layout.isMobile ? 60 : 80;
+      const difficultyFontSize = layout.isMobile ? 14 : Config.FONT_SIZES.SMALL;
+      
+      const t = this.add.text(w/2, h/2 + i*difficultySpacing + difficultyStartY, checkboxText, 
+        Config.textStyle(difficultyFontSize, textColor)
       ).setOrigin(0.5).setInteractive({ useHandCursor:true });
       
       t.on('pointerover', ()=> t.setStyle({ color: Config.COLORS.TEXT_GOLD }));

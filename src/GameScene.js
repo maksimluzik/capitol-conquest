@@ -31,7 +31,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   startGame() {
-    this.board = new Board(this, { size: 5, hexSize: 36 });
+    // Get responsive layout settings
+    const layout = Config.DEVICE.getMobileLayout(this);
+    
+    // Create responsive board
+    const boardSize = layout.isMobile ? 4 : 5; // Smaller board on mobile
+    const hexSize = layout.isMobile ? 28 : 36; // Smaller hexes on mobile
+    
+    this.board = new Board(this, { size: boardSize, hexSize: hexSize });
     this.board.generate();
     this.ui = new UIManager(this);
     const gmOptions = { 

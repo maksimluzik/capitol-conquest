@@ -76,6 +76,58 @@ export const Config = {
     }
   },
   
+  // Device Detection and Responsive Settings
+  DEVICE: {
+    isMobile: function(scene) {
+      // Use Phaser's native device detection
+      if (scene && scene.sys && scene.sys.game && scene.sys.game.device) {
+        return !scene.sys.game.device.os.desktop;
+      }
+      // Fallback for cases where scene/device isn't available yet
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+             window.innerWidth <= 768;
+    },
+    isTablet: function(scene) {
+      if (scene && scene.sys && scene.sys.game && scene.sys.game.device) {
+        return scene.sys.game.device.os.iPad || 
+               (scene.sys.game.device.os.android && Math.min(window.innerWidth, window.innerHeight) >= 600);
+      }
+      return /iPad/i.test(navigator.userAgent);
+    },
+    isPortrait: function() {
+      return window.innerHeight > window.innerWidth;
+    },
+    getResponsiveScale: function(baseSize, scene) {
+      const isMobile = this.isMobile(scene);
+      if (!isMobile) return 1;
+      
+      // Mobile scaling based on screen size
+      const screenWidth = scene.scale.width;
+      const screenHeight = scene.scale.height;
+      const minDimension = Math.min(screenWidth, screenHeight);
+      
+      // Scale factor for mobile (smaller boards)
+      return Math.min(1, minDimension / 600);
+    },
+    getMobileLayout: function(scene) {
+      const isMobile = this.isMobile(scene);
+      const isTablet = this.isTablet(scene);
+      
+      return {
+        isMobile: isMobile,
+        isTablet: isTablet,
+        isDesktop: !isMobile,
+        screenWidth: scene.scale.width,
+        screenHeight: scene.scale.height,
+        scale: this.getResponsiveScale(1, scene),
+        // Mobile-specific spacing
+        buttonSpacing: isMobile ? 40 : 60,
+        fontSize: isMobile ? 'small' : 'medium',
+        padding: isMobile ? 8 : 16
+      };
+    }
+  },
+  
   // Helper function to create text style objects
   textStyle: (fontSize, color = '#222', options = {}) => ({
     fontFamily: Config.FONT_FAMILY,
