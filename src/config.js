@@ -71,8 +71,8 @@ export const Config = {
     },
     LEVELS: {
       NORMAL: { difficulty: 'normal', aiPieceMultiplier: 1 },
-      HARD: { difficulty: 'hard', aiPieceMultiplier: 2 },
-      EXPERT: { difficulty: 'expert', aiPieceMultiplier: 3 }
+      HARD: { difficulty: 'hard', aiPieceMultiplier: 3 },
+      EXPERT: { difficulty: 'expert', aiPieceMultiplier: 5 }
     }
   },
   
@@ -112,18 +112,32 @@ export const Config = {
     getMobileLayout: function(scene) {
       const isMobile = this.isMobile(scene);
       const isTablet = this.isTablet(scene);
+      const screenWidth = scene.scale.width;
+      const screenHeight = scene.scale.height;
+      
+      // Calculate scale based on current screen dimensions
+      const minDimension = Math.min(screenWidth, screenHeight);
+      const maxDimension = Math.max(screenWidth, screenHeight);
+      const aspectRatio = maxDimension / minDimension;
+      
+      // Adaptive spacing based on screen size
+      const baseSpacing = isMobile ? Math.max(30, minDimension * 0.05) : 60;
+      const basePadding = isMobile ? Math.max(6, minDimension * 0.015) : 16;
       
       return {
         isMobile: isMobile,
         isTablet: isTablet,
         isDesktop: !isMobile,
-        screenWidth: scene.scale.width,
-        screenHeight: scene.scale.height,
+        screenWidth: screenWidth,
+        screenHeight: screenHeight,
+        minDimension: minDimension,
+        maxDimension: maxDimension,
+        aspectRatio: aspectRatio,
         scale: this.getResponsiveScale(1, scene),
-        // Mobile-specific spacing
-        buttonSpacing: isMobile ? 40 : 60,
+        // Dynamic spacing based on actual screen size
+        buttonSpacing: baseSpacing,
         fontSize: isMobile ? 'small' : 'medium',
-        padding: isMobile ? 8 : 16
+        padding: basePadding
       };
     }
   },

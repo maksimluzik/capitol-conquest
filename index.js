@@ -10,12 +10,10 @@ function getGameDimensions() {
                    window.innerWidth <= 768;
   
   if (isMobile) {
-    // Mobile: Use full viewport with constraints
-    const maxWidth = Math.min(window.innerWidth, 480);
-    const maxHeight = Math.min(window.innerHeight, 800);
+    // Mobile: Use current viewport dimensions which will be dynamically adjusted
     return {
-      width: maxWidth,
-      height: maxHeight,
+      width: window.innerWidth,
+      height: window.innerHeight,
       isMobile: true
     };
   } else {
@@ -37,15 +35,15 @@ const config = {
   backgroundColor: '#f2f2f2',
   scene: [MenuScene, HelpScene, ColorSelectScene, GlobalStatsScene, GameScene],
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: gameDimensions.isMobile ? Phaser.Scale.RESIZE : Phaser.Scale.NONE,
+    autoCenter: gameDimensions.isMobile ? Phaser.Scale.CENTER_BOTH : Phaser.Scale.NO_CENTER,
     min: {
       width: 320,
       height: 480
     },
     max: {
-      width: 900,
-      height: 900
+      width: 1920,
+      height: 1080
     }
   },
   // Store device info globally
@@ -64,6 +62,30 @@ const config = {
       console.log('iPhone:', game.device.os.iPhone);
       console.log('Touch Available:', game.device.input.touch);
       console.log('Canvas Available:', game.device.canvasFeatures);
+      
+      // Handle mobile viewport changes (address bar, orientation changes)
+      if (gameDimensions.isMobile) {
+        const resizeGame = () => {
+          const width = window.innerWidth;
+          const height = window.innerHeight;
+          game.scale.resize(width, height);
+        };
+        
+        // Listen for various mobile viewport events
+        window.addEventListener('resize', resizeGame);
+        window.addEventListener('orientationchange', () => {
+          // Delay to allow browser to finish orientation change
+          setTimeout(resizeGame, 100);
+        });
+        
+        // Handle mobile browser bar show/hide
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', resizeGame);
+        }
+        
+        // Initial resize to ensure proper fit
+        setTimeout(resizeGame, 100);
+      }
     }
   }
 };

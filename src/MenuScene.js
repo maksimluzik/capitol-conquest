@@ -36,6 +36,9 @@ export class MenuScene extends Phaser.Scene {
     // Create stylish title with enhanced visual effects
     this.createStylishTitle(w, h, layout);
     
+    // Add resize listener for mobile viewport changes
+    this.scale.on('resize', this.handleResize, this);
+    
     const options = [
       { label:'Single Player (vs AI)', mode:'single' },
       { label:'Two Player Local', mode:'two' },
@@ -238,6 +241,15 @@ export class MenuScene extends Phaser.Scene {
     // Save preference
     localStorage.setItem('musicEnabled', this.game.music.isPlaying.toString());
   }
+  
+  handleResize(gameSize, baseSize, displaySize, resolution) {
+    // Only recreate scene for mobile devices on significant size changes
+    const layout = Config.DEVICE.getMobileLayout(this);
+    if (layout.isMobile) {
+      // Clear existing scene and recreate with new dimensions
+      this.scene.restart();
+    }
+  }
 }
 
 export class HelpScene extends Phaser.Scene {
@@ -419,9 +431,9 @@ export class ColorSelectScene extends Phaser.Scene {
     ).setOrigin(0.5);
     
     const difficultyOptions = [
-      { label:'Normal (Equal Start)', ...Config.DIFFICULTY.LEVELS.NORMAL },
-      { label:'Hard (AI starts with 2x pieces)', ...Config.DIFFICULTY.LEVELS.HARD },
-      { label:'Expert (AI starts with 3x pieces)', ...Config.DIFFICULTY.LEVELS.EXPERT }
+      { label:`Normal (Equal Start)`, ...Config.DIFFICULTY.LEVELS.NORMAL },
+      { label:`Hard (AI starts with ${Config.DIFFICULTY.LEVELS.HARD.aiPieceMultiplier} pieces)`, ...Config.DIFFICULTY.LEVELS.HARD },
+      { label:`Expert (AI starts with ${Config.DIFFICULTY.LEVELS.EXPERT.aiPieceMultiplier} pieces)`, ...Config.DIFFICULTY.LEVELS.EXPERT }
     ];
     
     // Store difficulty text objects for updating checkboxes

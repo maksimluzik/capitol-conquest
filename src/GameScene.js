@@ -76,6 +76,37 @@ export class GameScene extends Phaser.Scene {
   
   // Add music toggle button
   this.addMusicToggle();
+  
+  // Add resize listener for mobile viewport changes
+  this.scale.on('resize', this.handleResize, this);
+  }
+  
+  handleResize(gameSize, baseSize, displaySize, resolution) {
+    // Handle resize for mobile devices
+    const layout = Config.DEVICE.getMobileLayout(this);
+    if (layout.isMobile) {
+      // Update UI elements for new dimensions
+      if (this.ui) {
+        this.ui.handleResize(gameSize.width, gameSize.height);
+      }
+      
+      // Recreate scene for significant layout changes if needed
+      const aspectRatioChange = Math.abs(
+        (gameSize.width / gameSize.height) - (this.lastAspectRatio || gameSize.width / gameSize.height)
+      ) > 0.2;
+      
+      if (aspectRatioChange) {
+        this.lastAspectRatio = gameSize.width / gameSize.height;
+        // Store game state before restart
+        const gameState = this.gameManager ? this.gameManager.getGameState() : null;
+        this.scene.restart({ 
+          mode: this.mode, 
+          playerChoice: this.playerChoice, 
+          difficulty: this.difficulty,
+          gameState: gameState 
+        });
+      }
+    }
   }
   
   initializeMusic() {
