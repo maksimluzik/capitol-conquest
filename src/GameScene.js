@@ -16,9 +16,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(data) {
-    // data: { mode: 'single' | 'two', playerChoice? }
+    // data: { mode: 'single' | 'two', playerChoice?, difficulty? }
     this.mode = data?.mode || 'two';
     this.playerChoice = data?.playerChoice || null; // { playerId, playerColor, aiColor }
+    this.difficulty = data?.difficulty || Config.DIFFICULTY.DEFAULT; // AI difficulty
     
     // Initialize music if needed
     this.initializeMusic();
@@ -35,7 +36,8 @@ export class GameScene extends Phaser.Scene {
     this.ui = new UIManager(this);
     const gmOptions = { 
       mode: this.mode,
-      playerChoice: this.playerChoice // Pass player choice for global stats
+      playerChoice: this.playerChoice, // Pass player choice for global stats
+      difficulty: this.difficulty // Pass difficulty settings
     };
     // Override player colors if choice present
     if (this.playerChoice && this.mode === 'single') {
@@ -48,7 +50,10 @@ export class GameScene extends Phaser.Scene {
     this.gameManager = new GameManager(this.board, this.ui, this, gmOptions);
     if (this.mode === 'single') {
       const aiId = this.playerChoice ? (this.playerChoice.playerId === 1 ? 2 : 1) : (gmOptions.humanPlayerId === 1 ? 2 : 1);
-  this.aiPlayer = new AI(aiId);
+      
+      // Adjust AI weights based on difficulty
+      const aiOptions = this.getAIOptions(this.difficulty);
+      this.aiPlayer = new AI(aiId, aiOptions);
     }
     this.board.hexMap.forEach(hex => {
       const hitPoly = hex.getData('hit');
@@ -130,5 +135,44 @@ export class GameScene extends Phaser.Scene {
     }
     
     localStorage.setItem('musicEnabled', this.game.music.isPlaying.toString());
+  }
+  
+  /**
+   * Get AI configuration based on difficulty level
+   */
+  getAIOptions(difficulty) {
+    const baseWeights = {
+      pieceDiff: 4.0,
+      oppMobility: 2.5,
+      centerControl: 1.2,
+      risk: 1.5,
+      jitter: 0.3
+    };
+    
+    switch (difficulty.difficulty) {
+      case 'hard':
+        return {
+          weights: {
+            ...baseWeights,
+            pieceDiff: 4.5,     // More aggressive about piece advantage
+            oppMobility: 3.0,   // Better at limiting opponent moves
+            centerControl: 1.5, // Better positioning
+            risk: 1.2           // More willing to take risks
+          }
+        };
+      case 'expert':
+        return {
+          weights: {
+            ...baseWeights,
+            pieceDiff: 5.0,     // Very aggressive about piece advantage
+            oppMobility: 3.5,   // Excellent at limiting opponent moves
+            centerControl: 2.0, // Excellent positioning
+            risk: 1.0,          // Calculated risks
+            jitter: 0.1         // More consistent play
+          }
+        };
+      default: // normal
+        return { weights: baseWeights };
+    }
   }
 }

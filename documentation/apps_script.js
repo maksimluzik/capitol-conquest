@@ -12,6 +12,7 @@ function doGet(e) {
 /**
  * POST endpoint to append a new game result to the sheet.
  * Handles form data to avoid CORS preflight issues.
+ * Updated to include difficulty level tracking for AI games.
  */
 function doPost(e) {
   try {
@@ -22,7 +23,9 @@ function doPost(e) {
       redScore: parseInt(e.parameter.redScore),
       blueScore: parseInt(e.parameter.blueScore),
       gameDuration: parseInt(e.parameter.gameDuration) || 0,
-      playerChoice: e.parameter.playerChoice || 'N/A'
+      playerChoice: e.parameter.playerChoice || 'N/A',
+      difficulty: e.parameter.difficulty || 'normal',
+      aiPieceMultiplier: parseInt(e.parameter.aiPieceMultiplier) || 1
     };
 
     Logger.log(`Received form data: ${JSON.stringify(data)}`);
@@ -36,7 +39,7 @@ function doPost(e) {
         .setResponseCode(400);
     }
 
-    // Prepare row data
+    // Prepare row data with new difficulty columns
     const timestamp = new Date().toISOString();
     const row = [
       timestamp,
@@ -45,11 +48,33 @@ function doPost(e) {
       data.redScore,
       data.blueScore,
       data.gameDuration,
-      data.playerChoice
+      data.playerChoice,
+      data.difficulty,
+      data.aiPieceMultiplier
     ];
 
+    // Get or create sheet
+    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+    
+    // Create sheet with headers if it doesn't exist
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet(SHEET_NAME);
+      const headers = [
+        'Timestamp',
+        'Winner',
+        'Game Mode',
+        'Red Score',
+        'Blue Score',
+        'Duration (seconds)',
+        'Player Choice',
+        'Difficulty',
+        'AI Piece Multiplier'
+      ];
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+
     // Append to sheet
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
     sheet.appendRow(row);
 
     Logger.log(`Successfully recorded game data: ${JSON.stringify(row)}`);
@@ -65,4 +90,28 @@ function doPost(e) {
       .setHeader('Access-Control-Allow-Origin', '*')
       .setResponseCode(500);
   }
+}
+
+/**
+ * Utility function to manually add headers if needed
+ * Run this once if your sheet doesn't have proper headers
+ */
+function addHeaders() {
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = spreadsheet.getSheetByName(SHEET_NAME);
+  
+  const headers = [
+    'Timestamp',
+    'Winner',
+    'Game Mode',
+    'Red Score',
+    'Blue Score',
+    'Duration (seconds)',
+    'Player Choice',
+    'Difficulty',
+    'AI Piece Multiplier'
+  ];
+  
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  Logger.log('Headers added successfully');
 }

@@ -64,7 +64,9 @@ export class GlobalStats {
       redScore,         // Final red player score
       blueScore,        // Final blue player score
       gameDuration,     // Game duration in seconds
-      playerChoice      // 'red' | 'blue' (for single player mode)
+      playerChoice,     // 'red' | 'blue' (for single player mode)
+      difficulty,       // 'normal' | 'hard' | 'expert' (for single player mode)
+      aiPieceMultiplier // 1 | 2 | 3 (AI starting piece multiplier)
     } = gameResult;
 
     try {
@@ -76,6 +78,8 @@ export class GlobalStats {
       formData.append('blueScore', blueScore.toString());
       formData.append('gameDuration', (gameDuration || 0).toString());
       formData.append('playerChoice', playerChoice || 'N/A');
+      formData.append('difficulty', difficulty || Config.DIFFICULTY.DEFAULT.difficulty);
+      formData.append('aiPieceMultiplier', (aiPieceMultiplier || 1).toString());
 
       console.log('Sending form data to Apps Script:', gameResult);
 
@@ -124,7 +128,7 @@ export class GlobalStats {
     }
 
     try {
-      const data = await this.readRange('A:G');
+      const data = await this.readRange('A:I'); // Extended to include difficulty columns
       console.log('Fetched global stats data:', data);
       if (!data || !data.values || data.values.length <= 1) {
         return this.getEmptyStats();
@@ -158,6 +162,11 @@ export class GlobalStats {
       averageGameDuration: 0,
       totalScore: { red: 0, blue: 0 },
       winRateByChoice: { red: 0, blue: 0 }, // For single player
+      difficultyStats: { // New difficulty tracking
+        normal: { games: 0, wins: 0 },
+        hard: { games: 0, wins: 0 },
+        expert: { games: 0, wins: 0 }
+      },
       recentGames: []
     };
 
@@ -165,7 +174,8 @@ export class GlobalStats {
     let singlePlayerChoiceStats = { red: { games: 0, wins: 0 }, blue: { games: 0, wins: 0 } };
 
     rows.forEach((row, index) => {
-      const [date, winner, gameMode, redScore, blueScore, duration, playerChoice] = row;
+      // Updated to handle new columns: [date, winner, gameMode, redScore, blueScore, duration, playerChoice, difficulty, aiPieceMultiplier]
+      const [date, winner, gameMode, redScore, blueScore, duration, playerChoice, difficulty, aiPieceMultiplier] = row;
       
       // Count wins
       if (winner === 'Republicans') stats.republicanWins++;
@@ -175,6 +185,19 @@ export class GlobalStats {
       // Count game modes
       if (gameMode === 'single') {
         stats.singlePlayerGames++;
+        
+        // Track difficulty stats for single player games
+        const gameDifficulty = difficulty || Config.DIFFICULTY.DEFAULT.difficulty;
+        if (stats.difficultyStats[gameDifficulty]) {
+          stats.difficultyStats[gameDifficulty].games++;
+          if (winner && winner !== 'Draw') {
+            // Determine if human won (check if winner matches playerChoice)
+            if ((playerChoice === 'red' && winner === 'Republicans') ||
+                (playerChoice === 'blue' && winner === 'Democrats')) {
+              stats.difficultyStats[gameDifficulty].wins++;
+            }
+          }
+        }
         
         // Track single player choice performance
         if (playerChoice === 'red' || playerChoice === 'blue') {
@@ -193,14 +216,22 @@ export class GlobalStats {
       stats.totalScore.blue += parseInt(blueScore) || 0;
       totalDuration += parseInt(duration) || 0;
 
-      // Store all games for recent games processing
-      stats.recentGames.push({
+      // Store all games for recent games processing (include difficulty info)
+      const gameEntry = {
         date: new Date(date).toLocaleDateString(),
         winner,
         gameMode,
         scores: `${redScore}-${blueScore}`,
         duration: this.formatDuration(parseInt(duration) || 0)
-      });
+      };
+      
+      // Add difficulty info for single player games
+      if (gameMode === 'single') {
+        gameEntry.difficulty = difficulty || Config.DIFFICULTY.DEFAULT.difficulty;
+        gameEntry.playerChoice = playerChoice;
+      }
+      
+      stats.recentGames.push(gameEntry);
     });
 
     // Reverse to show latest games first and limit to 10
@@ -214,6 +245,12 @@ export class GlobalStats {
     stats.winRateByChoice.blue = singlePlayerChoiceStats.blue.games > 0 
       ? (singlePlayerChoiceStats.blue.wins / singlePlayerChoiceStats.blue.games * 100) 
       : 0;
+
+    // Calculate difficulty win rates
+    Object.keys(stats.difficultyStats).forEach(difficulty => {
+      const diffStats = stats.difficultyStats[difficulty];
+      diffStats.winRate = diffStats.games > 0 ? (diffStats.wins / diffStats.games * 100) : 0;
+    });
 
     return stats;
   }
@@ -282,6 +319,11 @@ export class GlobalStats {
       averageGameDuration: 0,
       totalScore: { red: 0, blue: 0 },
       winRateByChoice: { red: 0, blue: 0 },
+      difficultyStats: {
+        normal: { games: 0, wins: 0, winRate: 0 },
+        hard: { games: 0, wins: 0, winRate: 0 },
+        expert: { games: 0, wins: 0, winRate: 0 }
+      },
       recentGames: []
     };
   }

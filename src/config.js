@@ -63,6 +63,19 @@ export const Config = {
     APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxicZTTphEMFckFqG6JPBjgF1KHa8zWRTqEMtq2DwUz9ftqru9UqTWfSBZGMRB_FjGX/exec'
   },
   
+  // Game Difficulty Configuration
+  DIFFICULTY: {
+    DEFAULT: {
+      difficulty: 'normal',
+      aiPieceMultiplier: 1
+    },
+    LEVELS: {
+      NORMAL: { difficulty: 'normal', aiPieceMultiplier: 1 },
+      HARD: { difficulty: 'hard', aiPieceMultiplier: 2 },
+      EXPERT: { difficulty: 'expert', aiPieceMultiplier: 3 }
+    }
+  },
+  
   // Helper function to create text style objects
   textStyle: (fontSize, color = '#222', options = {}) => ({
     fontFamily: Config.FONT_FAMILY,

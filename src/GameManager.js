@@ -1,6 +1,7 @@
 // GameManager.js - game state, turns, move validation (AI handled internally)
 import { addWinByColor, loadScores } from './PersistentScores.js';
 import { GlobalStats } from './GlobalStats.js';
+import { Config } from './config.js';
 
 export class GameManager {
   constructor(board, ui, scene, options = {}) {
@@ -10,6 +11,7 @@ export class GameManager {
     this.gameStartTime = Date.now(); // Track game duration
     this.gameMode = options.mode || 'two'; // 'single' or 'two'
     this.playerChoice = options.playerChoice || null; // For single player stats
+    this.difficulty = options.difficulty || Config.DIFFICULTY.DEFAULT; // AI difficulty settings
     
     // Initialize global stats
     this.globalStats = new GlobalStats();
@@ -33,15 +35,99 @@ export class GameManager {
 
   setupInitialPieces() {
     const s = this.board.size;
-    this.addPiece(-s, 0, 1);
-    this.addPiece(s, 0, 2);
-    this.addPiece(0, -s, 1);
-    this.addPiece(0, s, 2);
-    this.addPiece(-s, s, 1);
-    this.addPiece(s, -s, 2);
+    
+    if (this.gameMode === 'single' && this.difficulty.aiPieceMultiplier > 1) {
+      // AI difficulty mode - AI gets more starting pieces
+      const humanId = this.humanPlayerId;
+      const aiId = humanId === 1 ? 2 : 1;
+      
+      // Human player gets normal 3 pieces
+      if (humanId === 1) {
+        this.addPiece(-s, 0, 1);
+        this.addPiece(0, -s, 1);
+        this.addPiece(-s, s, 1);
+      } else {
+        this.addPiece(s, 0, 2);
+        this.addPiece(0, s, 2);
+        this.addPiece(s, -s, 2);
+      }
+      
+      // AI gets multiplied pieces - place them strategically
+      const aiPieceCount = 3 * this.difficulty.aiPieceMultiplier;
+      const aiStartPositions = this.generateAIPiecePositions(aiId, aiPieceCount);
+      
+      aiStartPositions.forEach(pos => {
+        this.addPiece(pos.q, pos.r, aiId);
+      });
+      
+    } else {
+      // Standard mode - both players get 3 pieces each
+      this.addPiece(-s, 0, 1);
+      this.addPiece(s, 0, 2);
+      this.addPiece(0, -s, 1);
+      this.addPiece(0, s, 2);
+      this.addPiece(-s, s, 1);
+      this.addPiece(s, -s, 2);
+    }
+    
     this.updateScores();
     this.ui.updateTurn(this.players[this.currentPlayer].name);
     this.ui.updateScores(this.players[1].score, this.players[2].score);
+  }
+
+  /**
+   * Generate strategic starting positions for AI pieces based on difficulty
+   */
+  generateAIPiecePositions(aiId, totalCount) {
+    const s = this.board.size;
+    const positions = [];
+    
+    // Base AI positions (standard 3)
+    const basePositions = aiId === 1 
+      ? [{ q: -s, r: 0 }, { q: 0, r: -s }, { q: -s, r: s }]
+      : [{ q: s, r: 0 }, { q: 0, r: s }, { q: s, r: -s }];
+    
+    positions.push(...basePositions);
+    
+    // Add additional pieces for higher difficulty
+    if (totalCount > 3) {
+      const additionalPositions = this.generateAdditionalAIPositions(aiId, totalCount - 3, s);
+      positions.push(...additionalPositions);
+    }
+    
+    return positions.slice(0, totalCount);
+  }
+
+  /**
+   * Generate additional strategic positions for AI pieces
+   */
+  generateAdditionalAIPositions(aiId, count, boardSize) {
+    const positions = [];
+    const s = boardSize;
+    
+    // Strategic positions for AI expansion
+    const strategicPositions = aiId === 1 
+      ? [
+          { q: -s+1, r: 0 }, { q: -s, r: 1 }, { q: 0, r: -s+1 },
+          { q: -1, r: -s }, { q: -s+1, r: s-1 }, { q: -s, r: s-1 },
+          { q: -s+2, r: 0 }, { q: 0, r: -s+2 }, { q: -s+2, r: s-2 }
+        ]
+      : [
+          { q: s-1, r: 0 }, { q: s, r: -1 }, { q: 0, r: s-1 },
+          { q: 1, r: s }, { q: s-1, r: -s+1 }, { q: s, r: -s+1 },
+          { q: s-2, r: 0 }, { q: 0, r: s-2 }, { q: s-2, r: -s+2 }
+        ];
+    
+    // Filter valid positions and add them
+    for (let i = 0; i < strategicPositions.length && positions.length < count; i++) {
+      const pos = strategicPositions[i];
+      const hex = this.board.getHex(pos.q, pos.r);
+      if (hex && !hex.data.values.piece && !this.board.isBlocked(pos.q, pos.r)) {
+        positions.push(pos);
+      }
+    }
+    
+    return positions;
   }
 
   addPiece(q, r, playerId, { animateSpawn = false } = {}) {
@@ -524,7 +610,9 @@ export class GameManager {
         redScore: this.players[1].score,
         blueScore: this.players[2].score,
         gameDuration: gameDuration,
-        playerChoice: this.getPlayerChoice()
+        playerChoice: this.getPlayerChoice(),
+        difficulty: this.difficulty.difficulty || Config.DIFFICULTY.DEFAULT.difficulty,
+        aiPieceMultiplier: this.difficulty.aiPieceMultiplier || 1
       };
 
       await this.globalStats.recordGameResult(gameResult);

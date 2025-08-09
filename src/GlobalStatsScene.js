@@ -125,6 +125,26 @@ export class GlobalStatsScene extends Phaser.Scene {
       });
 
       currentY += lineHeight;
+
+      // Difficulty Statistics
+      this.add.text(w/2, currentY, 'Difficulty Statistics', 
+        Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_GOLD)
+      ).setOrigin(0.5);
+      currentY += lineHeight * 1.5;
+
+      Object.entries(stats.difficultyStats).forEach(([difficulty, diffStats]) => {
+        const difficultyName = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+        const winRateText = diffStats.games > 0 
+          ? `${diffStats.winRate.toFixed(1)}% (${diffStats.wins}/${diffStats.games})`
+          : 'No games played';
+        
+        this.add.text(60, currentY, `${difficultyName}: ${winRateText}`, 
+          Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_WHITE)
+        );
+        currentY += lineHeight;
+      });
+
+      currentY += lineHeight;
     }
 
     // Recent Games
@@ -138,19 +158,22 @@ export class GlobalStatsScene extends Phaser.Scene {
       this.add.text(60, currentY, 'Date', 
         Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_BRIGHT_GOLD, { fontWeight: 'bold' })
       );
-      this.add.text(160, currentY, 'Winner', 
+      this.add.text(150, currentY, 'Winner', 
         Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_BRIGHT_GOLD, { fontWeight: 'bold' })
       );
-      this.add.text(280, currentY, 'Score', 
+      this.add.text(250, currentY, 'Score', 
         Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_BRIGHT_GOLD, { fontWeight: 'bold' })
       );
-      this.add.text(360, currentY, 'Duration', 
+      this.add.text(320, currentY, 'Mode', 
+        Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_BRIGHT_GOLD, { fontWeight: 'bold' })
+      );
+      this.add.text(400, currentY, 'Duration', 
         Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_BRIGHT_GOLD, { fontWeight: 'bold' })
       );
       currentY += lineHeight;
 
       // Recent games list (limit to visible area)
-      const maxGames = Math.min(stats.recentGames.length, 8);
+      const maxGames = Math.min(stats.recentGames.length, 6);
       stats.recentGames.slice(0, maxGames).forEach(game => {
         this.add.text(60, currentY, game.date, 
           Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_WHITE)
@@ -158,15 +181,26 @@ export class GlobalStatsScene extends Phaser.Scene {
         
         const winnerColor = game.winner === 'Republicans' ? Config.COLORS.TEXT_RED : 
                            game.winner === 'Democrats' ? Config.COLORS.TEXT_LIGHT_BLUE : Config.COLORS.TEXT_WHITE;
-        this.add.text(160, currentY, game.winner, 
+        this.add.text(150, currentY, game.winner, 
           Config.textStyle(Config.FONT_SIZES.MINI, winnerColor)
         );
         
-        this.add.text(280, currentY, game.scores, 
+        this.add.text(250, currentY, game.scores, 
           Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_WHITE)
         );
         
-        this.add.text(360, currentY, game.duration, 
+        // Show mode with difficulty for single player
+        let modeText = game.gameMode === 'single' ? 'AI' : '2P';
+        if (game.gameMode === 'single' && game.difficulty) {
+          const diffShort = game.difficulty === Config.DIFFICULTY.DEFAULT.difficulty ? 'N' : 
+                           game.difficulty === 'hard' ? 'H' : 'E';
+          modeText += `-${diffShort}`;
+        }
+        this.add.text(320, currentY, modeText, 
+          Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_WHITE)
+        );
+        
+        this.add.text(400, currentY, game.duration, 
           Config.textStyle(Config.FONT_SIZES.MINI, Config.COLORS.TEXT_WHITE)
         );
         

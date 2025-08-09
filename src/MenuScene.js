@@ -356,18 +356,114 @@ export class ColorSelectScene extends Phaser.Scene {
     // Add semi-transparent overlay
     this.add.rectangle(w/2, h/2, w, h, Config.COLORS.OVERLAY_DARK, 0.3);
     
-    this.add.text(w/2, h/2 - 120, 'Choose Your Side', Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_WHITE)).setOrigin(0.5);
-    const options = [
+    this.add.text(w/2, h/2 - 160, 'Choose Your Side', Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_WHITE)).setOrigin(0.5);
+    
+    // Color options
+    const colorOptions = [
       { label:'Play as Red (Republicans)', playerId:1, playerColor:0xd94343, aiColor:0x3a52d9 },
       { label:'Play as Blue (Democrats)', playerId:2, playerColor:0x3a52d9, aiColor:0xd94343 }
     ];
-    options.forEach((o,i)=>{
-      const t = this.add.text(w/2, h/2 + i*70 - 10, o.label, Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE)).setOrigin(0.5).setInteractive({ useHandCursor:true });
-      t.on('pointerover', ()=> t.setStyle({ color: Config.COLORS.TEXT_GOLD}));
-      t.on('pointerout', ()=> t.setStyle({ color: Config.COLORS.TEXT_WHITE}));
-      t.on('pointerdown', ()=> this._choose(o));
+    
+    colorOptions.forEach((o,i)=>{
+      const t = this.add.text(w/2, h/2 + i*60 - 80, o.label, 
+        Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE, {
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          padding: { x: 16, y: 8 },
+          borderRadius: 8
+        })
+      ).setOrigin(0.5).setInteractive({ useHandCursor:true });
+      
+      t.on('pointerover', ()=> t.setStyle({ 
+        color: Config.COLORS.TEXT_GOLD,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)'
+      }));
+      t.on('pointerout', ()=> t.setStyle({ 
+        color: Config.COLORS.TEXT_WHITE,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)'
+      }));
+      t.on('pointerdown', ()=> this._selectColor(o));
     });
+    
+    // Difficulty selection
+    this.add.text(w/2, h/2 + 50, 'Choose Difficulty Level', Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE)).setOrigin(0.5);
+    
+    const difficultyOptions = [
+      { label:'Normal (Equal Start)', ...Config.DIFFICULTY.LEVELS.NORMAL },
+      { label:'Hard (AI starts with 2x pieces)', ...Config.DIFFICULTY.LEVELS.HARD },
+      { label:'Expert (AI starts with 3x pieces)', ...Config.DIFFICULTY.LEVELS.EXPERT }
+    ];
+    
+    // Store difficulty text objects for updating checkboxes
+    this.difficultyTexts = [];
+    
+    difficultyOptions.forEach((o,i)=>{
+      // Preselect normal difficulty (index 0)
+      const isPreselected = o.difficulty === Config.DIFFICULTY.DEFAULT.difficulty;
+      const checkboxText = (isPreselected ? '☑️ ' : '☐ ') + o.label;
+      const textColor = isPreselected ? Config.COLORS.TEXT_GOLD : Config.COLORS.TEXT_WHITE;
+      
+      const t = this.add.text(w/2, h/2 + i*50 + 80, checkboxText, 
+        Config.textStyle(Config.FONT_SIZES.SMALL, textColor)
+      ).setOrigin(0.5).setInteractive({ useHandCursor:true });
+      
+      t.on('pointerover', ()=> t.setStyle({ color: Config.COLORS.TEXT_GOLD }));
+      t.on('pointerout', ()=> {
+        // Maintain golden color for selected item, white for others
+        const currentColor = this.selectedDifficulty === o ? Config.COLORS.TEXT_GOLD : Config.COLORS.TEXT_WHITE;
+        t.setStyle({ color: currentColor });
+      });
+      t.on('pointerdown', ()=> this._selectDifficulty(o, i));
+      
+      // Store reference for updating
+      t.difficultyOption = o;
+      this.difficultyTexts.push(t);
+    });
+    
+    // Storage for selections - preselect normal difficulty
+    this.selectedColor = null;
+    this.selectedDifficulty = Config.DIFFICULTY.DEFAULT; // Normal difficulty preselected
+    
     this.input.keyboard.on('keydown-ESC', ()=> this.scene.start('MenuScene'));
+  }
+  _selectColor(colorOption) {
+    this.selectedColor = colorOption;
+    if (this.selectedDifficulty) {
+      this._startGame();
+    }
+  }
+  
+  _selectDifficulty(difficultyOption, index) {
+    this.selectedDifficulty = difficultyOption;
+    
+    // Update all difficulty checkboxes
+    this.difficultyTexts.forEach((textObj, i) => {
+      const isSelected = i === index;
+      const checkbox = isSelected ? '☑️ ' : '☐ ';
+      const newText = checkbox + textObj.difficultyOption.label;
+      textObj.setText(newText);
+      
+      // Update color for selected item
+      if (isSelected) {
+        textObj.setStyle({ color: Config.COLORS.TEXT_GOLD });
+      } else {
+        textObj.setStyle({ color: Config.COLORS.TEXT_WHITE });
+      }
+    });
+    
+    if (this.selectedColor) {
+      this._startGame();
+    }
+  }
+  
+  _startGame() {
+    if (!this.selectedColor || !this.selectedDifficulty) return;
+    
+    // Pass both color choice and difficulty to GameScene
+    this.scene.start('GameScene', { 
+      mode:'single', 
+      playerChoice: this.selectedColor,
+      difficulty: this.selectedDifficulty
+    });
   }
   _choose(o){
     // Pass custom player colors to GameScene

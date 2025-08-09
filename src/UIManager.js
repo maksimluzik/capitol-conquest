@@ -28,7 +28,7 @@ export class UIManager {
     if (this.gameOverText) return;
     const w = this.scene.scale.width / 2;
     const h = this.scene.scale.height / 2;
-    const msg = winner ? `${winner.name} wins!` : 'Draw!';
+    const msg = winner ? `${winner.name} win!` : 'Draw!';
     this.gameOverText = this.scene.add.text(w, h, `Game Over\n${msg}`,
       Config.textStyle('48px', Config.COLORS.TEXT_DARK, { backgroundColor: Config.COLORS.TEXT_WHITE, padding: { x: 24, y: 16 }, align: 'center' })
     ).setOrigin(0.5).setDepth(200);
