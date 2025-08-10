@@ -2,8 +2,8 @@
 import { Board } from './Board.js';
 import { GameManager } from './GameManager.js';
 import { UIManager } from './UIManager.js';
-import { AI } from './AI.js';
 import { Config } from './config.js';
+import { createModeHandler } from './modes/index.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() { super('GameScene'); }
@@ -16,7 +16,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(data) {
-    // data: { mode: 'single' | 'two', playerChoice?, difficulty? }
+    // data: { mode: 'single' | 'two' | 'online', playerChoice?, difficulty? }
     this.mode = data?.mode || 'two';
     this.playerChoice = data?.playerChoice || null; // { playerId, playerColor, aiColor }
     this.difficulty = data?.difficulty || Config.DIFFICULTY.DEFAULT; // AI difficulty
@@ -41,27 +41,23 @@ export class GameScene extends Phaser.Scene {
     this.board = new Board(this, { size: boardSize, hexSize: hexSize });
     this.board.generate();
     this.ui = new UIManager(this);
-    const gmOptions = { 
+
+    const baseOptions = {
       mode: this.mode,
-      playerChoice: this.playerChoice, // Pass player choice for global stats
-      difficulty: this.difficulty // Pass difficulty settings
+      playerChoice: this.playerChoice,
+      difficulty: this.difficulty
     };
-    // Override player colors if choice present
-    if (this.playerChoice && this.mode === 'single') {
-      gmOptions.players = {
-        1: { id:1, name:'Republicans', color: (this.playerChoice.playerId===1? this.playerChoice.playerColor : this.playerChoice.aiColor), score:0, isAI:false },
-        2: { id:2, name:'Democrats', color: (this.playerChoice.playerId===2? this.playerChoice.playerColor : this.playerChoice.aiColor), score:0, isAI:false }
-      };
-      gmOptions.humanPlayerId = this.playerChoice.playerId; // ensure GameManager knows which side is human
-    }
+    // Create mode handler and allow it to customize GameManager options
+    this.modeHandler = createModeHandler(this.mode, this, baseOptions);
+    const gmOptions = this.modeHandler?.getGameManagerOptions
+      ? this.modeHandler.getGameManagerOptions()
+      : baseOptions;
+
     this.gameManager = new GameManager(this.board, this.ui, this, gmOptions);
-    if (this.mode === 'single') {
-      const aiId = this.playerChoice ? (this.playerChoice.playerId === 1 ? 2 : 1) : (gmOptions.humanPlayerId === 1 ? 2 : 1);
-      
-      // Adjust AI weights based on difficulty
-      const aiOptions = this.getAIOptions(this.difficulty);
-      this.aiPlayer = new AI(aiId, aiOptions);
-    }
+
+    // Let mode perform any additional setup (AI, networking, etc.)
+    this.modeHandler?.setup?.();
+
     this.board.hexMap.forEach(hex => {
       const hitPoly = hex.getData('hit');
       if (hitPoly) { // Only add listeners for interactive hexes (non-blocked)
@@ -69,16 +65,17 @@ export class GameScene extends Phaser.Scene {
       }
     });
     this.gameManager.setupInitialPieces();
-  // Add skip turn UI and forfeit functionality
-  this.ui.addSkipButton(() => this.gameManager.skipTurn(), () => this.gameManager.forfeitGame());
-  this.input.keyboard.on('keydown-S', () => this.gameManager.skipTurn());
-  this.input.keyboard.on('keydown-F', () => this.gameManager.forfeitGame()); // F key for forfeit
-  
-  // Add music toggle button
-  this.addMusicToggle();
-  
-  // Add resize listener for mobile viewport changes
-  this.scale.on('resize', this.handleResize, this);
+
+    // Add skip turn UI and forfeit functionality
+    this.ui.addSkipButton(() => this.gameManager.skipTurn(), () => this.gameManager.forfeitGame());
+    this.input.keyboard.on('keydown-S', () => this.gameManager.skipTurn());
+    this.input.keyboard.on('keydown-F', () => this.gameManager.forfeitGame()); // F key for forfeit
+
+    // Add music toggle button
+    this.addMusicToggle();
+
+    // Add resize listener for mobile viewport changes
+    this.scale.on('resize', this.handleResize, this);
   }
   
   handleResize(gameSize, baseSize, displaySize, resolution) {

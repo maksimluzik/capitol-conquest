@@ -505,7 +505,7 @@ export class GameManager {
     this.currentPlayer = (this.currentPlayer === 1) ? 2 : 1;
     this.ui.updateTurn(this.players[this.currentPlayer].name);
     this.ui.flashTurn(this.players[this.currentPlayer].name);
-  if (this.scene.mode === 'single' && this.players[this.currentPlayer].isAI && this.scene.aiPlayer) {
+    if (this.players[this.currentPlayer].isAI && this.scene.aiPlayer) {
       // Let UI update before AI moves
       this.scene.time.delayedCall(350, () => this.aiTurn(), [], this);
     }
