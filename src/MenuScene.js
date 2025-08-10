@@ -39,14 +39,14 @@ export class MenuScene extends Phaser.Scene {
     // Add resize listener for mobile viewport changes
     this.scale.on('resize', this.handleResize, this);
     
-      const options = [
-        { label:'Single Player (vs AI)', mode:'single' },
-        { label:'Two Player Local', mode:'two' },
-        { label:'Online Multiplayer', mode:'online' },
-        { label:'Global Statistics', mode:'stats' },
-        { label:'Help & Rules', mode:'help' },
-        { label:'Reset Local Scores', mode:'reset' }
-      ];
+    const options = [
+      { label:'🎮 Single Player (vs AI)', mode:'single' },
+      { label:'👥 Two Player Local', mode:'two' },
+      { label:'🌐 Multiplayer Online', mode:'multiplayer' },
+      { label:'📊 Global Statistics', mode:'stats' },
+      { label:'❓ Help & Rules', mode:'help' },
+      { label:'🔄 Reset Local Scores', mode:'reset' }
+    ];
     this.items = [];
     options.forEach((o,i)=>{
       const fontSize = layout.isMobile ? Config.FONT_SIZES.SMALL : Config.FONT_SIZES.MEDIUM;
@@ -107,12 +107,13 @@ export class MenuScene extends Phaser.Scene {
   }
   _activate(){ 
     if (this.sel === -1) return; // Do nothing if no item selected
-      const map = ['single','two','online','stats','help','reset'];
+    const map = ['single','two','multiplayer','stats','help','reset']; 
     this._select({ mode: map[this.sel] }); 
   }
   _select(o){
     if (o.mode==='help'){ this.scene.start('HelpScene'); return; }
     if (o.mode==='stats'){ this.scene.start('GlobalStatsScene'); return; }
+    if (o.mode==='multiplayer'){ this.scene.start('MultiplayerScene'); return; }
     if (o.mode==='reset'){ resetScores(); this._renderScores(); return; }
     if (o.mode==='single'){ this.scene.start('ColorSelectScene'); return; }
     this.scene.start('GameScene',{ mode:o.mode });
