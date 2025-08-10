@@ -171,6 +171,14 @@ Control the most pieces when all playable hexes are filled.
 - **F**: Toggle fullscreen mode
 - **Music Toggle**: 🎵/🔇 icon in top-right corner
 
+## 🎵 Audio Credits
+
+### **Sound Effects**
+Sound effects are sourced from [Freesound.org](https://freesound.org/) - a collaborative database of Creative Commons licensed sounds.
+
+### **Background Music**
+Background music is AI-generated using [AIVA (Artificial Intelligence Virtual Artist)](https://creators.aiva.ai/) - an AI composer that creates original musical compositions.
+
 ## 🌐 Live Demo
 
 Visit **[cc.maksimluzik.com](https://cc.maksimluzik.com)** to play Capitol Conquest!
