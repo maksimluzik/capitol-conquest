@@ -1,0 +1,532 @@
+import { GameManager } from './GameManager.js';
+import { UIManager } from './UIManager.js';
+import { Board } from './Board.js';
+import { NetworkManager } from './NetworkManager.js';
+import { Config } from './config.js';
+
+class MultiplayerScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MultiplayerScene' });
+        this.networkManager = null;
+        this.gameManager = null;
+        this.uiManager = null;
+        this.board = null;
+        this.isMyTurn = false;
+        this.gameStarted = false;
+        this.playerData = null;
+        this.opponentData = null;
+        this.waitingText = null;
+        this.connectionStatus = null;
+        this.chatMessages = [];
+    }
+
+    preload() {
+        // Reuse assets from MenuScene
+        this.load.image('bg', 'assets/capitol-conquest-splash-portrait.png');
+    }
+
+    create() {
+        // Set up background
+        this.bg = this.add.image(this.cameras.main.centerX, this.cameras.main.centerY, 'bg');
+        this.bg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+
+        // Initialize network manager
+        this.networkManager = new NetworkManager();
+        
+        // Set up UI
+        this.createUI();
+        
+        // Set up network event handlers
+        this.setupNetworkHandlers();
+        
+        // Connect to server
+        this.connectToServer();
+
+        // Handle resize
+        this.scale.on('resize', this.handleResize, this);
+    }
+
+    createUI() {
+        const centerX = this.cameras.main.centerX;
+        const centerY = this.cameras.main.centerY;
+
+        // Title
+        this.add.text(centerX, 80, 'CAPITOL CONQUEST', {
+            fontSize: '32px',
+            fontFamily: 'Arial Black',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+
+        this.add.text(centerX, 120, 'MULTIPLAYER', {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            fill: '#ffd700',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+
+        // Connection status
+        this.connectionStatus = this.add.text(centerX, 160, 'Connecting to server...', {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+
+        // Waiting message
+        this.waitingText = this.add.text(centerX, centerY, '', {
+            fontSize: '20px',
+            fontFamily: 'Arial',
+            fill: '#ffffff',
+            align: 'center'
+        }).setOrigin(0.5);
+
+        // Player info containers
+        this.createPlayerInfoUI();
+
+        // Back button
+        const backButton = this.add.rectangle(100, 50, 160, 40, 0x4169E1)
+            .setInteractive()
+            .on('pointerdown', () => this.goBack())
+            .on('pointerover', () => backButton.setFillStyle(0x6495ED))
+            .on('pointerout', () => backButton.setFillStyle(0x4169E1));
+
+        this.add.text(100, 50, 'Back to Menu', {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+
+        // Chat UI (initially hidden)
+        this.createChatUI();
+    }
+
+    createPlayerInfoUI() {
+        const centerX = this.cameras.main.centerX;
+        
+        // Player 1 info (left side)
+        this.player1Info = this.add.container(centerX - 200, 200);
+        this.player1Info.setVisible(false);
+        
+        // Player 2 info (right side)
+        this.player2Info = this.add.container(centerX + 200, 200);
+        this.player2Info.setVisible(false);
+    }
+
+    createChatUI() {
+        const gameWidth = this.cameras.main.width;
+        const gameHeight = this.cameras.main.height;
+
+        // Chat container (initially hidden) - high depth to appear above board
+        this.chatContainer = this.add.container(gameWidth - 250, gameHeight - 200);
+        this.chatContainer.setDepth(1000); // High depth to appear above everything
+        this.chatContainer.setVisible(false);
+
+        // Chat background
+        const chatBg = this.add.rectangle(0, 0, 240, 180, 0x000000, 0.8);
+        chatBg.setStrokeStyle(2, 0x666666);
+        this.chatContainer.add(chatBg);
+
+        // Chat title
+        const chatTitle = this.add.text(0, -75, 'CHAT', {
+            fontSize: '14px',
+            fontFamily: 'Arial',
+            fill: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.chatContainer.add(chatTitle);
+
+        // Chat messages area
+        this.chatMessagesText = this.add.text(-110, -50, '', {
+            fontSize: '12px',
+            fontFamily: 'Arial',
+            fill: '#ffffff',
+            wordWrap: { width: 220 }
+        });
+        this.chatContainer.add(this.chatMessagesText);
+
+        // Chat input area
+        this.chatInputText = this.add.text(-110, 60, 'Press T to chat', {
+            fontSize: '11px',
+            fontFamily: 'Arial',
+            fill: '#cccccc'
+        });
+        this.chatContainer.add(this.chatInputText);
+
+        // Chat input background
+        const inputBg = this.add.rectangle(0, 65, 220, 25, 0x333333, 0.8);
+        inputBg.setStrokeStyle(1, 0x666666);
+        this.chatContainer.add(inputBg);
+        this.chatContainer.bringToTop(this.chatInputText);
+
+        // Chat state
+        this.chatVisible = false;
+        this.chatInputActive = false;
+        this.currentChatMessage = '';
+
+        // Add keyboard listeners for chat
+        this.input.keyboard.on('keydown-T', () => this.toggleChat());
+        this.input.keyboard.on('keydown-ENTER', () => this.handleChatEnter());
+        this.input.keyboard.on('keydown-ESC', () => this.closeChatInput());
+        this.input.keyboard.on('keydown', (event) => this.handleChatInput(event));
+    }
+
+    setupNetworkHandlers() {
+        this.networkManager.on('gameStarted', (data) => {
+            this.handleGameStarted(data);
+        });
+
+        this.networkManager.on('waitingForOpponent', () => {
+            this.waitingText.setText('Waiting for opponent...\n\nLooking for another player to join the game.');
+            this.connectionStatus.setText('Connected - Searching for opponent');
+        });
+
+        this.networkManager.on('moveMade', (data) => {
+            this.handleMoveMade(data);
+        });
+
+        this.networkManager.on('moveRejected', (data) => {
+            this.showMessage(`Move rejected: ${data.error}`, '#ff0000');
+        });
+
+        this.networkManager.on('playerDisconnected', (data) => {
+            this.showMessage('Opponent disconnected. Returning to menu...', '#ff0000');
+            this.time.delayedCall(3000, () => this.goBack());
+        });
+
+        this.networkManager.on('chatMessage', (data) => {
+            this.addChatMessage(`${data.player}: ${data.message}`);
+        });
+
+        this.networkManager.on('error', (data) => {
+            this.showMessage(`Error: ${data.message}`, '#ff0000');
+        });
+
+        this.networkManager.on('disconnected', () => {
+            this.connectionStatus.setText('Disconnected from server');
+            this.showMessage('Connection lost. Returning to menu...', '#ff0000');
+            this.time.delayedCall(3000, () => this.goBack());
+        });
+    }
+
+    async connectToServer() {
+        try {
+            await this.networkManager.connect();
+            this.connectionStatus.setText('Connected to server');
+            
+            // Join game with player name
+            const playerName = this.getPlayerName();
+            this.networkManager.joinGame(playerName);
+            
+        } catch (error) {
+            console.error('Failed to connect:', error);
+            this.connectionStatus.setText('Connection failed');
+            this.waitingText.setText('Failed to connect to server.\n\nPlease check your internet connection\nand try again.');
+            
+            // Add retry button
+            this.time.delayedCall(2000, () => {
+                const retryButton = this.add.rectangle(this.cameras.main.centerX, this.cameras.main.centerY + 100, 120, 40, 0x4169E1)
+                    .setInteractive()
+                    .on('pointerdown', () => this.scene.restart());
+                
+                this.add.text(this.cameras.main.centerX, this.cameras.main.centerY + 100, 'Retry', {
+                    fontSize: '16px',
+                    fontFamily: 'Arial',
+                    fill: '#ffffff'
+                }).setOrigin(0.5);
+            });
+        }
+    }
+
+    getPlayerName() {
+        // Try to get player name from localStorage or generate one
+        let playerName = localStorage.getItem('playerName');
+        if (!playerName) {
+            playerName = `Player${Math.floor(Math.random() * 1000)}`;
+            localStorage.setItem('playerName', playerName);
+        }
+        return playerName;
+    }
+
+    handleGameStarted(data) {
+        console.log('Game started with data:', data);
+        
+        // Add a delay to show the "game found" message
+        this.waitingText.setText('Game found! Starting...');
+        
+        this.time.delayedCall(2000, () => {
+            this.gameStarted = true;
+            this.playerData = data.players.find(p => p.id === this.networkManager.socket.id);
+            this.opponentData = data.players.find(p => p.id !== this.networkManager.socket.id);
+            
+            // Hide background and UI elements
+            this.bg.setVisible(false);
+            this.waitingText.setText('');
+            
+            // Update connection status
+            this.connectionStatus.setText(`Playing as ${this.playerData.color} vs ${this.opponentData.name}`);
+            
+            // Show player info
+            this.updatePlayerInfo();
+            
+            // Initialize game components
+            this.initializeGame(data);
+            
+            // Update turn indicator using existing UI system
+            this.updateGameTurn(data.currentPlayer);
+            
+            // Show chat with instructions
+            this.chatContainer.setVisible(true);
+            this.addChatMessage('Chat active! Press T to send messages');
+        });
+    }
+
+    updatePlayerInfo() {
+        // Clear existing info
+        this.player1Info.removeAll(true);
+        this.player2Info.removeAll(true);
+        
+        // Player 1 (you)
+        const player1Bg = this.add.rectangle(0, 0, 180, 80, this.playerData.color === 'blue' ? 0x0066cc : 0xcc0000, 0.8);
+        const player1Name = this.add.text(0, -15, this.playerData.name, {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+        const player1Label = this.add.text(0, 15, '(You)', {
+            fontSize: '12px',
+            fontFamily: 'Arial',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+        
+        this.player1Info.add([player1Bg, player1Name, player1Label]);
+        this.player1Info.setVisible(true);
+        
+        // Player 2 (opponent)
+        const player2Bg = this.add.rectangle(0, 0, 180, 80, this.opponentData.color === 'blue' ? 0x0066cc : 0xcc0000, 0.8);
+        const player2Name = this.add.text(0, -15, this.opponentData.name, {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+        const player2Label = this.add.text(0, 15, '(Opponent)', {
+            fontSize: '12px',
+            fontFamily: 'Arial',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+        
+        this.player2Info.add([player2Bg, player2Name, player2Label]);
+        this.player2Info.setVisible(true);
+    }
+
+    initializeGame(data) {
+        // Initialize game components with multiplayer data
+        
+        this.board = new Board(this, Config);
+        this.board.generate(); // Generate the board
+        
+        this.uiManager = new UIManager(this, Config);
+        this.gameManager = new GameManager(this.board, this.uiManager, this, { 
+            mode: 'multiplayer',
+            players: {
+                1: { 
+                    id: 1, 
+                    name: this.playerData.name, 
+                    color: this.playerData.color === 'blue' ? 0x2563eb : 0xdc2626, 
+                    score: 0, 
+                    isAI: false 
+                },
+                2: { 
+                    id: 2, 
+                    name: this.opponentData.name, 
+                    color: this.opponentData.color === 'blue' ? 0x2563eb : 0xdc2626, 
+                    score: 0, 
+                    isAI: false 
+                }
+            },
+            humanPlayerId: this.networkManager.playerId + 1 // Convert 0/1 to 1/2
+        });
+        
+        // Set up multiplayer mode
+        this.gameManager.setMultiplayerMode(true, this.networkManager);
+        
+        // For now, setup local initial pieces since server board format doesn't match
+        // TODO: Sync server board format with hex coordinates
+        this.gameManager.setupInitialPieces();
+        
+        // Set up board click handlers
+        this.board.hexMap.forEach(hex => {
+            const hitPoly = hex.getData('hit');
+            if (hitPoly) { // Only add listeners for interactive hexes (non-blocked)
+                hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
+            }
+        });
+    }
+
+    handleMoveMade(data) {
+        // Update game state
+        if (this.gameManager) {
+            this.gameManager.applyMove(data.move, data.gameState);
+        }
+        
+        // Update turn indicator using the same system
+        this.updateGameTurn(data.currentPlayer);
+        
+        // Show move feedback
+        const isMyMove = data.playerId === this.networkManager.playerId;
+        const message = isMyMove ? 'Your move was accepted' : `${this.opponentData.name} made a move`;
+        this.showMessage(message, isMyMove ? '#00ff00' : '#ffffff');
+    }
+
+    updateGameTurn(currentPlayer) {
+        this.isMyTurn = this.networkManager.isMyTurn(currentPlayer);
+        
+        // Get the current player's name based on the server's 0-based index
+        const isPlayer0Turn = currentPlayer === 0;
+        const isMyTurn = (this.networkManager.playerId === currentPlayer);
+        
+        let playerName;
+        if (isMyTurn) {
+            playerName = 'You';
+        } else {
+            playerName = this.opponentData.name;
+        }
+        
+        // Use UIManager to update turn display
+        if (this.uiManager) {
+            this.uiManager.updateTurn(playerName);
+        }
+    }
+
+    updateTurnIndicator(currentPlayer) {
+        // Use the new updateGameTurn method instead
+        this.updateGameTurn(currentPlayer);
+    }
+
+    showMessage(text, color = '#ffffff') {
+        // Create temporary message
+        const message = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, text, {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            fill: color,
+            stroke: '#000000',
+            strokeThickness: 1,
+            align: 'center'
+        }).setOrigin(0.5);
+        
+        // Fade out after 3 seconds
+        this.tweens.add({
+            targets: message,
+            alpha: 0,
+            duration: 3000,
+            onComplete: () => message.destroy()
+        });
+    }
+
+    addChatMessage(message) {
+        this.chatMessages.push(message);
+        
+        // Keep only last 5 messages
+        if (this.chatMessages.length > 5) {
+            this.chatMessages.shift();
+        }
+        
+        // Update chat display
+        this.chatMessagesText.setText(this.chatMessages.join('\n'));
+    }
+
+    toggleChat() {
+        this.chatVisible = !this.chatVisible;
+        this.chatContainer.setVisible(this.chatVisible);
+        
+        if (this.chatVisible) {
+            this.startChatInput();
+        } else {
+            this.closeChatInput();
+        }
+    }
+
+    startChatInput() {
+        this.chatInputActive = true;
+        this.currentChatMessage = '';
+        this.chatInputText.setText('|'); // Cursor
+        this.chatInputText.setStyle({ fill: '#ffffff' });
+    }
+
+    closeChatInput() {
+        this.chatInputActive = false;
+        this.currentChatMessage = '';
+        this.chatInputText.setText('Press T to chat');
+        this.chatInputText.setStyle({ fill: '#cccccc' });
+        this.chatVisible = false;
+        this.chatContainer.setVisible(false);
+    }
+
+    handleChatEnter() {
+        if (this.chatInputActive && this.currentChatMessage.trim().length > 0) {
+            // Send message
+            if (this.networkManager && this.gameStarted) {
+                this.networkManager.sendChatMessage(this.currentChatMessage.trim());
+                this.addChatMessage(`You: ${this.currentChatMessage.trim()}`);
+            }
+            this.closeChatInput();
+        } else if (!this.chatInputActive && this.chatVisible) {
+            this.startChatInput();
+        }
+    }
+
+    handleChatInput(event) {
+        if (!this.chatInputActive) return;
+
+        const key = event.key;
+        
+        if (key === 'Backspace') {
+            this.currentChatMessage = this.currentChatMessage.slice(0, -1);
+        } else if (key.length === 1 && this.currentChatMessage.length < 50) {
+            // Only add printable characters
+            this.currentChatMessage += key;
+        }
+
+        // Update display
+        this.chatInputText.setText(this.currentChatMessage + '|');
+    }
+
+    handleResize() {
+        // Update UI positions on resize
+        const centerX = this.cameras.main.centerX;
+        const centerY = this.cameras.main.centerY;
+        
+        if (this.waitingText) {
+            this.waitingText.setPosition(centerX, centerY);
+        }
+        
+        // Update other UI elements as needed
+        if (this.gameManager) {
+            this.gameManager.handleResize();
+        }
+    }
+
+    goBack() {
+        // Disconnect from server
+        if (this.networkManager) {
+            this.networkManager.disconnect();
+        }
+        
+        // Return to menu
+        this.scene.start('MenuScene');
+    }
+
+    destroy() {
+        // Clean up
+        if (this.networkManager) {
+            this.networkManager.disconnect();
+        }
+        
+        this.scale.off('resize', this.handleResize);
+        super.destroy();
+    }
+}
+
+// Export for ES6 modules
+export { MultiplayerScene };

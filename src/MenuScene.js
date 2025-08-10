@@ -1,5 +1,5 @@
 // MenuScene.js - main menu and help scenes
-import { GameScene } from './GameScene.js';
+import { GameSceneBase } from './GameSceneBase.js';
 import { loadScores, resetScores } from './PersistentScores.js';
 import { Config } from './config.js';
 
@@ -40,11 +40,12 @@ export class MenuScene extends Phaser.Scene {
     this.scale.on('resize', this.handleResize, this);
     
     const options = [
-      { label:'Single Player (vs AI)', mode:'single' },
-      { label:'Two Player Local', mode:'two' },
-      { label:'Global Statistics', mode:'stats' },
-      { label:'Help & Rules', mode:'help' },
-      { label:'Reset Local Scores', mode:'reset' }
+      { label:'🎮 Single Player (vs AI)', mode:'single' },
+      { label:'👥 Two Player Local', mode:'two' },
+      { label:'🌐 Multiplayer Online', mode:'multiplayer' },
+      { label:'📊 Global Statistics', mode:'stats' },
+      { label:'❓ Help & Rules', mode:'help' },
+      { label:'🔄 Reset Local Scores', mode:'reset' }
     ];
     this.items = [];
     options.forEach((o,i)=>{
@@ -106,12 +107,13 @@ export class MenuScene extends Phaser.Scene {
   }
   _activate(){ 
     if (this.sel === -1) return; // Do nothing if no item selected
-    const map = ['single','two','stats','help','reset']; 
+    const map = ['single','two','multiplayer','stats','help','reset']; 
     this._select({ mode: map[this.sel] }); 
   }
   _select(o){
     if (o.mode==='help'){ this.scene.start('HelpScene'); return; }
     if (o.mode==='stats'){ this.scene.start('GlobalStatsScene'); return; }
+    if (o.mode==='multiplayer'){ this.scene.start('GameScene', { mode: 'multiplayer' }); return; }
     if (o.mode==='reset'){ resetScores(); this._renderScores(); return; }
     if (o.mode==='single'){ this.scene.start('ColorSelectScene'); return; }
     this.scene.start('GameScene',{ mode:o.mode });

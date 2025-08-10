@@ -15,6 +15,7 @@ A strategic hex-based board game where Republicans and Democrats battle for cont
 ### **Game Modes**
 - **Single Player vs AI**: Challenge the computer with multiple difficulty levels
 - **Two Player Local**: Play against a friend on the same device
+- **🌐 Multiplayer Online**: Real-time multiplayer over the internet
 - **AI Difficulty Levels**:
   - 🟢 **Normal**: Equal starting pieces (3 vs 3)
   - 🟡 **Hard**: AI starts with 3x pieces (3 vs 9) 
@@ -95,6 +96,50 @@ const score =
 - **Viewport Handling**: Supports dynamic viewport changes (browser bars)
 - **Responsive Typography**: Text scaling based on device type
 
+## 🌐 Multiplayer Architecture
+
+### **Real-time Online Multiplayer**
+- **Socket.IO Integration**: WebSocket-based real-time communication
+- **Automatic Matchmaking**: Players are automatically paired when joining
+- **Game State Synchronization**: Server authoritative with optimistic updates
+- **Cross-platform Play**: Works across desktop and mobile devices
+
+### **Server Features**
+- **Node.js + Express**: Lightweight, scalable backend
+- **Game Room Management**: Isolated game sessions for each pair of players
+- **Move Validation**: Server-side validation prevents cheating
+- **Disconnection Handling**: Graceful handling of player disconnections
+- **Chat System**: In-game messaging between players
+- **Security**: CORS protection, rate limiting, and input validation
+
+### **Multiplayer Setup**
+
+#### **For Development:**
+1. **Start the server:**
+   ```bash
+   cd server
+   npm install
+   npm start
+   ```
+
+2. **Update server URL** in `NetworkManager.js` if needed (defaults to localhost:3001)
+
+3. **Access the game** at http://localhost:8080 and select "🌐 Multiplayer Online"
+
+#### **For Production:**
+1. **Deploy server** to platforms like Heroku, Railway, or DigitalOcean
+2. **Update server URL** in `NetworkManager.js` to your production server
+3. **Configure CORS** in `server.js` for your domain
+
+### **Network Architecture**
+```
+Frontend (Phaser 3)     Backend (Node.js + Socket.IO)
+├── NetworkManager      ├── Game Room Management
+├── MultiplayerScene    ├── Player Matchmaking  
+├── Optimistic Updates  ├── Move Validation
+└── Socket.IO Client    └── State Synchronization
+```
+
 ## 🛠️ Technical Architecture
 
 ### **Frontend Framework**
@@ -132,22 +177,31 @@ const score =
 
 ```
 src/
-├── AI.js                  # AI implementation with heuristic evaluation
-├── Board.js               # Hex board generation and management
-├── GameManager.js         # Core game logic and state management
-├── GameScene.js           # Main gameplay scene
+├── AI.js                  # Artificial Intelligence algorithms
+├── AIPlayer.js            # AI player implementation with move selection
+├── Board.js               # Hexagonal board logic and rendering
+├── GameManager.js         # Game state management and multiplayer support
+├── GameScene.js           # Main game scene with responsive design
 ├── GlobalStats.js         # Statistics tracking and Google Sheets integration
 ├── GlobalStatsScene.js    # Statistics display scene
 ├── MenuScene.js           # Menu system (Main, Color Select, Help)
+├── MultiplayerScene.js    # Online multiplayer scene and UI
+├── NetworkManager.js      # Socket.IO client and network communication
 ├── UIManager.js           # UI elements and responsive layout
 └── config.js              # Game configuration and constants
+
+server/
+├── server.js              # Node.js + Socket.IO multiplayer server
+├── package.json           # Server dependencies
+└── README.md              # Server documentation and setup
 
 assets/
 ├── backgrounds/           # Background images
 └── sounds/               # Music and sound effects
 
-manuals/
-└── apps_script.js        # Google Apps Script backend code
+documentation/
+├── apps_script.js         # Google Apps Script backend code
+└── google_sheets_setup.md # Analytics setup instructions
 ```
 
 ## 🎯 Game Rules

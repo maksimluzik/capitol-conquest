@@ -9,9 +9,15 @@ export class GameManager {
     this.ui = ui;
     this.scene = scene;
     this.gameStartTime = Date.now(); // Track game duration
-    this.gameMode = options.mode || 'two'; // 'single' or 'two'
+    this.gameMode = options.mode || 'two'; // 'single', 'two', or 'multiplayer'
     this.playerChoice = options.playerChoice || null; // For single player stats
     this.difficulty = options.difficulty || Config.DIFFICULTY.DEFAULT; // AI difficulty settings
+    
+    // Multiplayer support
+    this.isMultiplayer = false;
+    this.networkManager = null;
+    this.myPlayerId = null;
+    this.pendingMove = null; // Store move until confirmed by server
     
     // Initialize global stats
     this.globalStats = new GlobalStats();
@@ -335,6 +341,12 @@ export class GameManager {
 
   onHexClicked(hex) {
     if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
+    
+    // Check multiplayer permissions
+    if (this.isMultiplayer && !this.isMyTurn()) {
+      return; // Not your turn in multiplayer
+    }
+    
     const piece = hex.data.values.piece;
     if (!this.selectedPiece) {
       if (piece && piece.data.values.player === this.currentPlayer) {
@@ -351,7 +363,13 @@ export class GameManager {
       }
       return;
     }
-    this.executeMove(move);
+    
+    // Handle multiplayer move
+    if (this.isMultiplayer) {
+      this.executeMultiplayerMove(move);
+    } else {
+      this.executeMove(move);
+    }
   }
 
   selectPiece(piece, reselect = false) {
@@ -683,5 +701,168 @@ export class GameManager {
   getWinner() {
     if (this.players[1].score === this.players[2].score) return null;
     return this.players[1].score > this.players[2].score ? this.players[1] : this.players[2];
+  }
+
+  // Multiplayer support methods
+  setMultiplayerMode(enabled, networkManager) {
+    this.isMultiplayer = enabled;
+    this.networkManager = networkManager;
+    
+    if (enabled && networkManager) {
+      this.myPlayerId = networkManager.playerId;
+    }
+  }
+
+  handleClick(row, col) {
+    // Convert board position to hex coordinates
+    // This is a simplified conversion - you may need to adjust based on your board layout
+    const q = col - Math.floor(row / 2);
+    const r = row;
+    
+    const hex = this.board.getHex(q, r);
+    if (hex) {
+      this.onHexClicked(hex);
+    }
+  }
+
+  isMyTurn() {
+    if (!this.isMultiplayer) {
+      return !this.players[this.currentPlayer].isAI;
+    }
+    return this.currentPlayer === this.myPlayerId;
+  }
+
+  executeMultiplayerMove(move) {
+    if (!this.isMultiplayer || !this.isMyTurn()) {
+      return false;
+    }
+
+    // Store pending move for optimistic updates
+    this.pendingMove = {
+      from: { 
+        q: this.selectedPiece.data.values.q, 
+        r: this.selectedPiece.data.values.r 
+      },
+      to: { q: move.q, r: move.r },
+      type: move.type
+    };
+
+    // Send move to server
+    try {
+      this.networkManager.makeMove(this.pendingMove.from, this.pendingMove.to);
+      
+      // Optimistic update - execute move locally immediately
+      this.executeMove(move);
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to send move:', error);
+      this.pendingMove = null;
+      return false;
+    }
+  }
+
+  applyMove(moveData, gameState) {
+    // Apply move from server (for opponent moves or confirmed own moves)
+    if (!moveData || !gameState) return;
+
+    // Clear pending move if this confirms our move
+    if (this.pendingMove && 
+        this.pendingMove.from.q === moveData.from.row && 
+        this.pendingMove.from.r === moveData.from.col &&
+        this.pendingMove.to.q === moveData.to.row && 
+        this.pendingMove.to.r === moveData.to.col) {
+      this.pendingMove = null;
+      return; // Already applied optimistically
+    }
+
+    // Apply opponent move
+    const fromHex = this.board.getHex(moveData.from.row, moveData.from.col);
+    const piece = fromHex?.data.values.piece;
+    
+    if (piece) {
+      this.selectedPiece = piece;
+      this.executeMove({
+        q: moveData.to.row,
+        r: moveData.to.col,
+        type: this.determineMoveType(moveData.from, moveData.to)
+      });
+    }
+
+    // Sync game state
+    this.syncGameState(gameState);
+  }
+
+  determineMoveType(from, to) {
+    const distance = this.axialDistance(from.row, from.col, to.row, to.col);
+    return distance === 1 ? 'duplicate' : 'jump';
+  }
+
+  syncGameState(gameState) {
+    // Update scores
+    if (gameState.scores) {
+      this.players[1].score = gameState.scores.player1 || 0;
+      this.players[2].score = gameState.scores.player2 || 0;
+      this.ui.updateScores(this.players[1].score, this.players[2].score);
+    }
+
+    // Check for game over
+    if (gameState.gameOver) {
+      this.gameEnded = true;
+      if (gameState.winner !== null) {
+        const winner = this.players[gameState.winner + 1]; // Server uses 0/1, we use 1/2
+        this.showGameOverMessage(winner);
+      }
+    }
+  }
+
+  clearAllPieces() {
+    // Clear all pieces from the board
+    this.board.forEachHex(hex => {
+      const piece = hex.data.values.piece;
+      if (piece) {
+        piece.destroy();
+        hex.setData('piece', null);
+      }
+    });
+    
+    // Clear token layer if it exists
+    if (this.tokenLayer) {
+      this.tokenLayer.removeAll(true);
+    }
+  }
+
+  loadGameState(gameState) {
+    // Load initial game state from server
+    if (!gameState || !gameState.board) return;
+
+    // Clear current board
+    this.clearAllPieces();
+
+    // Load pieces from server state
+    for (let row = 0; row < gameState.board.length; row++) {
+      for (let col = 0; col < gameState.board[row].length; col++) {
+        const piece = gameState.board[row][col];
+        if (piece) {
+          // Convert server position to hex coordinates
+          const q = col - Math.floor(row / 2);
+          const r = row;
+          this.addPiece(q, r, piece.player + 1); // Server uses 0/1, we use 1/2
+        }
+      }
+    }
+
+    // Update scores
+    this.syncGameState(gameState);
+  }
+
+  handleResize() {
+    // Handle responsive resize for multiplayer games
+    if (this.board) {
+      this.board.handleResize();
+    }
+    if (this.ui) {
+      this.ui.handleResize();
+    }
   }
 }
