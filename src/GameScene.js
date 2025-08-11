@@ -34,9 +34,9 @@ export class GameScene extends Phaser.Scene {
     // Get responsive layout settings
     const layout = Config.DEVICE.getMobileLayout(this);
     
-    // Create responsive board
-    const boardSize = layout.isMobile ? 4 : 5; // Smaller board on mobile
-    const hexSize = layout.isMobile ? 28 : 36; // Smaller hexes on mobile
+    // Create responsive board using config values
+    const boardSize = layout.isMobile ? Config.BOARD.MOBILE_SIZE : Config.BOARD.DESKTOP_SIZE;
+    const hexSize = layout.isMobile ? Config.BOARD.HEX_SIZE.MOBILE : Config.BOARD.HEX_SIZE.DESKTOP;
     
     this.board = new Board(this, { size: boardSize, hexSize: hexSize });
     this.board.generate();
@@ -64,7 +64,11 @@ export class GameScene extends Phaser.Scene {
         hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
       }
     });
-    this.gameManager.setupInitialPieces();
+    
+    // Only setup initial pieces if the mode allows it (online mode will get pieces from server)
+    if (!this.modeHandler?.shouldSetupInitialPieces || this.modeHandler.shouldSetupInitialPieces()) {
+      this.gameManager.setupInitialPieces();
+    }
 
     // Add skip turn UI and forfeit functionality
     this.ui.addSkipButton(() => this.gameManager.skipTurn(), () => this.gameManager.forfeitGame());
@@ -90,7 +94,7 @@ export class GameScene extends Phaser.Scene {
       // Recreate scene for significant layout changes if needed
       const aspectRatioChange = Math.abs(
         (gameSize.width / gameSize.height) - (this.lastAspectRatio || gameSize.width / gameSize.height)
-      ) > 0.2;
+      ) > Config.UI.RESIZE_ASPECT_RATIO_THRESHOLD;
       
       if (aspectRatioChange) {
         this.lastAspectRatio = gameSize.width / gameSize.height;
@@ -114,11 +118,11 @@ export class GameScene extends Phaser.Scene {
   }
   
   initializeSounds() {
-    // Initialize sound effects with volume control
+    // Initialize sound effects with volume control from config
     this.sounds = {
-      pieceMove: this.sound.add('pieceMove', { volume: 0.5 }),
-      pieceJump: this.sound.add('pieceJump', { volume: 0.5 }),
-      convert: this.sound.add('convertSound', { volume: 0.4 })
+      pieceMove: this.sound.add('pieceMove', { volume: Config.AUDIO.VOLUMES.PIECE_MOVE }),
+      pieceJump: this.sound.add('pieceJump', { volume: Config.AUDIO.VOLUMES.PIECE_JUMP }),
+      convert: this.sound.add('convertSound', { volume: Config.AUDIO.VOLUMES.CONVERT })
     };
   }
   
@@ -147,13 +151,16 @@ export class GameScene extends Phaser.Scene {
     const w = this.scale.width;
     const musicIcon = this.game.music.isPlaying ? '🎵' : '🔇';
     
-    this.musicToggle = this.add.text(w - 20, 20, musicIcon, 
+    this.musicToggle = this.add.text(
+      w - Config.UI.MUSIC_TOGGLE_OFFSET, 
+      Config.UI.MUSIC_TOGGLE_OFFSET, 
+      musicIcon, 
       Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE)
-    ).setOrigin(1, 0).setInteractive({ useHandCursor: true }).setDepth(200);
+    ).setOrigin(1, 0).setInteractive({ useHandCursor: true }).setDepth(Config.UI.MUSIC_TOGGLE_DEPTH);
     
     this.musicToggle.on('pointerdown', () => this.toggleMusic());
-    this.musicToggle.on('pointerover', () => this.musicToggle.setScale(1.2));
-    this.musicToggle.on('pointerout', () => this.musicToggle.setScale(1.0));
+    this.musicToggle.on('pointerover', () => this.musicToggle.setScale(Config.UI.MUSIC_TOGGLE_SCALE_HOVER));
+    this.musicToggle.on('pointerout', () => this.musicToggle.setScale(Config.UI.MUSIC_TOGGLE_SCALE_NORMAL));
   }
   
   toggleMusic() {
@@ -176,34 +183,21 @@ export class GameScene extends Phaser.Scene {
    * Get AI configuration based on difficulty level
    */
   getAIOptions(difficulty) {
-    const baseWeights = {
-      pieceDiff: 4.0,
-      oppMobility: 2.5,
-      centerControl: 1.2,
-      risk: 1.5,
-      jitter: 0.3
-    };
+    const baseWeights = Config.AI.BASE_WEIGHTS;
     
     switch (difficulty.difficulty) {
       case 'hard':
         return {
           weights: {
             ...baseWeights,
-            pieceDiff: 4.5,     // More aggressive about piece advantage
-            oppMobility: 3.0,   // Better at limiting opponent moves
-            centerControl: 1.5, // Better positioning
-            risk: 1.2           // More willing to take risks
+            ...Config.AI.DIFFICULTY_WEIGHTS.HARD
           }
         };
       case 'expert':
         return {
           weights: {
             ...baseWeights,
-            pieceDiff: 5.0,     // Very aggressive about piece advantage
-            oppMobility: 3.5,   // Excellent at limiting opponent moves
-            centerControl: 2.0, // Excellent positioning
-            risk: 1.0,          // Calculated risks
-            jitter: 0.1         // More consistent play
+            ...Config.AI.DIFFICULTY_WEIGHTS.EXPERT
           }
         };
       default: // normal

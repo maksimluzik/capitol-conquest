@@ -63,6 +63,67 @@ export const Config = {
     APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxicZTTphEMFckFqG6JPBjgF1KHa8zWRTqEMtq2DwUz9ftqru9UqTWfSBZGMRB_FjGX/exec'
   },
   
+  // Game Board Configuration
+  BOARD: {
+    DEFAULT_SIZE: 5,
+    MOBILE_SIZE: 5,
+    DESKTOP_SIZE: 5,
+    HEX_SIZE: {
+      MOBILE: 28,
+      DESKTOP: 36
+    },
+    BLOCKED_PERCENTAGE: 0.10,
+    BLOCKED_PERCENTAGE_REDUCED: 0.05
+  },
+
+  // Audio Configuration
+  AUDIO: {
+    MUSIC_ENABLED: true,
+    SOUND_ENABLED: true,
+    BACKGROUND_MUSIC: true,
+    VOLUMES: {
+      PIECE_MOVE: 0.5,
+      PIECE_JUMP: 0.5,
+      CONVERT: 0.4,
+      BACKGROUND_MUSIC: 0.1
+    }
+  },
+
+  // UI Configuration
+  UI: {
+    MUSIC_TOGGLE_OFFSET: 20,
+    MUSIC_TOGGLE_SCALE_HOVER: 1.2,
+    MUSIC_TOGGLE_SCALE_NORMAL: 1.0,
+    MUSIC_TOGGLE_DEPTH: 200,
+    RESIZE_ASPECT_RATIO_THRESHOLD: 0.2
+  },
+
+  // AI Configuration
+  AI: {
+    BASE_WEIGHTS: {
+      pieceDiff: 4.0,
+      oppMobility: 2.5,
+      centerControl: 1.2,
+      risk: 1.5,
+      jitter: 0.3
+    },
+    DIFFICULTY_WEIGHTS: {
+      HARD: {
+        pieceDiff: 4.5,
+        oppMobility: 3.0,
+        centerControl: 1.5,
+        risk: 1.2
+      },
+      EXPERT: {
+        pieceDiff: 5.0,
+        oppMobility: 3.5,
+        centerControl: 2.0,
+        risk: 1.0,
+        jitter: 0.1
+      }
+    }
+  },
+
   // Game Difficulty Configuration
   DIFFICULTY: {
     DEFAULT: {

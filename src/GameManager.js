@@ -9,9 +9,10 @@ export class GameManager {
     this.ui = ui;
     this.scene = scene;
     this.gameStartTime = Date.now(); // Track game duration
-    this.gameMode = options.mode || 'two'; // 'single' or 'two'
+    this.gameMode = options.mode || 'two'; // 'single', 'two', or 'online'
     this.playerChoice = options.playerChoice || null; // For single player stats
     this.difficulty = options.difficulty || Config.DIFFICULTY.DEFAULT; // AI difficulty settings
+    this.networkPlayerId = options.networkPlayerId || null; // For online multiplayer
     
     // Initialize global stats
     this.globalStats = new GlobalStats();
@@ -31,6 +32,11 @@ export class GameManager {
     this.validMoves = [];
     this.gameEnded = false;
     this.tokenLayer = scene.add.layer();
+  }
+
+  setNetworkPlayerId(playerId) {
+    this.networkPlayerId = playerId;
+    console.log('GameManager: Network player ID set to', playerId);
   }
 
   setupInitialPieces() {
@@ -335,10 +341,19 @@ export class GameManager {
 
   onHexClicked(hex) {
     if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
+    
+    // In online mode, only allow moves if it's this player's turn and they are the current player
+    if (this.gameMode === 'online' && this.networkPlayerId && this.networkPlayerId !== this.currentPlayer) {
+      console.log(`Not your turn in online mode. You are player ${this.networkPlayerId}, current turn: ${this.currentPlayer}`);
+      return;
+    }
+    
     const piece = hex.data.values.piece;
     if (!this.selectedPiece) {
       if (piece && piece.data.values.player === this.currentPlayer) {
         this.selectPiece(piece);
+      } else if (piece) {
+        console.log(`Cannot select piece belonging to player ${piece.data.values.player}, current player is ${this.currentPlayer}`);
       }
       return;
     }
@@ -381,6 +396,20 @@ export class GameManager {
     const player = this.selectedPiece.data.values.player;
     const oldQ = this.selectedPiece.data.values.q;
     const oldR = this.selectedPiece.data.values.r;
+
+    // Send move to network if in online mode (but don't send network moves back to network)
+    if (this.gameMode === 'online' && this.scene.modeHandler?.network && !move.isNetworkMove) {
+      const networkMove = {
+        fromQ: oldQ,
+        fromR: oldR,
+        toQ: move.q,
+        toR: move.r,
+        type: move.type,
+        player: player
+      };
+      console.log('Sending network move:', networkMove);
+      this.scene.modeHandler.network.sendMove(networkMove);
+    }
 
     if (move.type === 'jump') {
       // Play jump sound
@@ -503,8 +532,19 @@ export class GameManager {
     this.ui.updateScores(this.players[1].score, this.players[2].score);
   if (this.checkGameOver()) { this._finalizeGame(); return; }
     this.currentPlayer = (this.currentPlayer === 1) ? 2 : 1;
-    this.ui.updateTurn(this.players[this.currentPlayer].name);
-    this.ui.flashTurn(this.players[this.currentPlayer].name);
+    
+    // Show appropriate turn text for online mode
+    if (this.gameMode === 'online' && this.networkPlayerId) {
+      const isMyTurn = this.networkPlayerId === this.currentPlayer;
+      const playerName = this.players[this.currentPlayer].name;
+      const turnText = isMyTurn ? `Your Turn (${playerName})` : `Opponent's Turn (${playerName})`;
+      this.ui.updateTurn(turnText);
+      this.ui.flashTurn(turnText);
+    } else {
+      this.ui.updateTurn(this.players[this.currentPlayer].name);
+      this.ui.flashTurn(this.players[this.currentPlayer].name);
+    }
+    
     if (this.players[this.currentPlayer].isAI && this.scene.aiPlayer) {
       // Let UI update before AI moves
       this.scene.time.delayedCall(350, () => this.aiTurn(), [], this);
@@ -695,20 +735,60 @@ export class GameManager {
   }
 
   loadState(state) {
-    if (!state) return;
+    if (!state) {
+      console.log('GameManager: No state to load');
+      return;
+    }
+    
+    console.log('GameManager: Loading state:', state);
+    
+    // Clear existing pieces
     this.board.hexMap.forEach(hex => {
       const piece = hex.data.values.piece;
       if (piece) piece.destroy();
       hex.data.values.piece = null;
     });
-    state.pieces.forEach(p => this.addPiece(p.q, p.r, p.player));
-    this.currentPlayer = state.currentPlayer;
+    
+    // Add pieces from state
+    if (state.pieces && state.pieces.length > 0) {
+      state.pieces.forEach(p => {
+        console.log(`Adding piece: player ${p.player} at (${p.q}, ${p.r})`);
+        this.addPiece(p.q, p.r, p.player);
+      });
+    }
+    
+    // Set current player
+    if (state.currentPlayer) {
+      this.currentPlayer = state.currentPlayer;
+    }
+    
+    // Update UI
     this.updateScores();
     this.ui.updateTurn(this.players[this.currentPlayer].name);
+    this.ui.updateScores(this.players[1].score, this.players[2].score);
+    
+    console.log('GameManager: State loaded successfully');
   }
 
   applyNetworkMove(move) {
-    this.selectedPiece = this.board.getHex(move.fromQ, move.fromR)?.data.values.piece || null;
-    this.executeMove({ q: move.toQ, r: move.toR, type: move.type });
+    console.log('Applying network move:', move);
+    
+    // Find the piece at the source position
+    const sourceHex = this.board.getHex(move.fromQ, move.fromR);
+    if (!sourceHex) {
+      console.error('Source hex not found for network move');
+      return;
+    }
+    
+    const piece = sourceHex.getData('piece');
+    if (!piece) {
+      console.error('No piece found at source position for network move');
+      return;
+    }
+    
+    // Set this piece as selected and execute the move (mark as network move to prevent loop)
+    this.selectedPiece = piece;
+    const networkMove = { q: move.toQ, r: move.toR, type: move.type, isNetworkMove: true };
+    this.executeMove(networkMove);
   }
 }

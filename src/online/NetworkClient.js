@@ -1,5 +1,3 @@
-import { io } from 'socket.io-client';
-
 export class NetworkClient {
   constructor(scene, url) {
     this.scene = scene;
@@ -9,13 +7,19 @@ export class NetworkClient {
     this.roomId = null;
   }
 
-  connect() {
+  async connect() {
     if (typeof window === 'undefined') {
       // In tests or non-browser environments, skip real connection
       console.log('NetworkClient: running in headless mode, connection skipped');
       return;
     }
-    const target = this.url || window.location.origin;
+
+    // Load Socket.IO from CDN if not already loaded
+    if (typeof io === 'undefined') {
+      await this.loadSocketIO();
+    }
+
+    const target = this.url || this.getServerUrl();
     this.socket = io(target);
 
     this.socket.on('connect', () => {
@@ -26,6 +30,7 @@ export class NetworkClient {
     this.socket.on('joined', ({ roomId, playerId }) => {
       this.playerId = playerId;
       this.roomId = roomId;
+      this.scene.events.emit('net-joined', { roomId, playerId });
     });
 
     this.socket.on('waiting', () => {
@@ -37,9 +42,16 @@ export class NetworkClient {
     });
 
     this.socket.on('startGame', ({ state, firstTurn }) => {
-      // Scene should provide method to load state
-      this.scene.gameManager?.loadState?.(state);
-      this.scene.gameManager.currentPlayer = firstTurn;
+      console.log('Starting game with state:', state);
+      console.log('First turn:', firstTurn);
+      
+      // Load the game state (includes pieces) from server
+      if (this.scene.gameManager && state) {
+        this.scene.gameManager.loadState(state);
+        this.scene.gameManager.currentPlayer = firstTurn;
+        console.log('Game state loaded, current player:', firstTurn);
+      }
+      
       this.scene.events.emit('net-startGame');
     });
 
@@ -53,10 +65,36 @@ export class NetworkClient {
 
     this.socket.on('opponentLeft', () => {
       console.log('Opponent disconnected');
+      this.scene.events.emit('net-opponentLeft');
     });
 
     this.socket.on('disconnect', () => {
       console.log('NetworkClient: disconnected');
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+      this.scene.events.emit('net-connectionError');
+    });
+  }
+
+  getServerUrl() {
+    // Detect environment and return appropriate server URL
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:3000';
+    } else {
+      // Replace this with your actual production server URL
+      return 'https://35.237.192.128';
+    }
+  }
+
+  loadSocketIO() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
     });
   }
 
