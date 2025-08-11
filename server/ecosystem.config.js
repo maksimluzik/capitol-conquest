@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'capitol-conquest-server',
     script: 'server.js',
-    cwd: '/path/to/capitol-conquest/server',
+    cwd: '/capitol-conquest/server',
     instances: 1,
     autorestart: true,
     watch: false,
