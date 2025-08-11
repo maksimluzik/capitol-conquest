@@ -31,12 +31,39 @@ export class GameScene extends Phaser.Scene {
   }
 
   startGame() {
+    // Clean up any existing game state first
+    if (this.board) {
+      // Destroy the board's visual container
+      if (this.board.container) {
+        this.board.container.destroy();
+      }
+      // Clear board data
+      this.board.hexMap?.clear();
+      this.board.blockedHexes?.clear();
+      this.board = null;
+    }
+    if (this.ui) {
+      if (this.ui.cleanup) {
+        this.ui.cleanup();
+      }
+      this.ui = null;
+    }
+    if (this.gameManager) {
+      this.gameManager = null;
+    }
+    if (this.modeHandler) {
+      if (this.modeHandler.cleanup) {
+        this.modeHandler.cleanup();
+      }
+      this.modeHandler = null;
+    }
+    
     // Get responsive layout settings
     const layout = Config.DEVICE.getMobileLayout(this);
     
-    // Create responsive board
-    const boardSize = layout.isMobile ? 4 : 5; // Smaller board on mobile
-    const hexSize = layout.isMobile ? 28 : 36; // Smaller hexes on mobile
+    // Create responsive board using config values
+    const boardSize = layout.isMobile ? Config.BOARD.MOBILE_SIZE : Config.BOARD.DESKTOP_SIZE;
+    const hexSize = layout.isMobile ? Config.BOARD.HEX_SIZE.MOBILE : Config.BOARD.HEX_SIZE.DESKTOP;
     
     this.board = new Board(this, { size: boardSize, hexSize: hexSize });
     this.board.generate();
@@ -58,18 +85,35 @@ export class GameScene extends Phaser.Scene {
     // Let mode perform any additional setup (AI, networking, etc.)
     this.modeHandler?.setup?.();
 
-    this.board.hexMap.forEach(hex => {
-      const hitPoly = hex.getData('hit');
-      if (hitPoly) { // Only add listeners for interactive hexes (non-blocked)
-        hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
-      }
-    });
-    this.gameManager.setupInitialPieces();
+    // Ensure board is properly initialized before setting up interactions
+    if (this.board && this.board.hexMap) {
+      this.board.hexMap.forEach(hex => {
+        const hitPoly = hex.getData('hit');
+        if (hitPoly) { // Only add listeners for interactive hexes (non-blocked)
+          hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
+        }
+      });
+    } else {
+      console.error('GameScene: Board not properly initialized');
+    }
+    
+    // Only setup initial pieces if the mode allows it (online mode will get pieces from server)
+    if (!this.modeHandler?.shouldSetupInitialPieces || this.modeHandler.shouldSetupInitialPieces()) {
+      this.gameManager.setupInitialPieces();
+    }
 
-    // Add skip turn UI and forfeit functionality
-    this.ui.addSkipButton(() => this.gameManager.skipTurn(), () => this.gameManager.forfeitGame());
-    this.input.keyboard.on('keydown-S', () => this.gameManager.skipTurn());
-    this.input.keyboard.on('keydown-F', () => this.gameManager.forfeitGame()); // F key for forfeit
+    // Add skip turn UI and forfeit functionality (disabled for online mode)
+    if (this.mode === 'online') {
+      // In online mode, show different buttons or disable these features
+      this.ui.addOnlineButtons();
+    } else {
+      // Add normal skip/forfeit buttons for local games
+      this.ui.addSkipButton(() => this.gameManager.skipTurn(), () => this.gameManager.forfeitGame());
+      
+      // Add hotkeys for non-online modes
+      this.input.keyboard.on('keydown-S', () => this.gameManager.skipTurn());
+      this.input.keyboard.on('keydown-F', () => this.gameManager.forfeitGame());
+    }
 
     // Add music toggle button
     this.addMusicToggle();
@@ -90,7 +134,7 @@ export class GameScene extends Phaser.Scene {
       // Recreate scene for significant layout changes if needed
       const aspectRatioChange = Math.abs(
         (gameSize.width / gameSize.height) - (this.lastAspectRatio || gameSize.width / gameSize.height)
-      ) > 0.2;
+      ) > Config.UI.RESIZE_ASPECT_RATIO_THRESHOLD;
       
       if (aspectRatioChange) {
         this.lastAspectRatio = gameSize.width / gameSize.height;
@@ -114,11 +158,11 @@ export class GameScene extends Phaser.Scene {
   }
   
   initializeSounds() {
-    // Initialize sound effects with volume control
+    // Initialize sound effects with volume control from config
     this.sounds = {
-      pieceMove: this.sound.add('pieceMove', { volume: 0.5 }),
-      pieceJump: this.sound.add('pieceJump', { volume: 0.5 }),
-      convert: this.sound.add('convertSound', { volume: 0.4 })
+      pieceMove: this.sound.add('pieceMove', { volume: Config.AUDIO.VOLUMES.PIECE_MOVE }),
+      pieceJump: this.sound.add('pieceJump', { volume: Config.AUDIO.VOLUMES.PIECE_JUMP }),
+      convert: this.sound.add('convertSound', { volume: Config.AUDIO.VOLUMES.CONVERT })
     };
   }
   
@@ -127,6 +171,40 @@ export class GameScene extends Phaser.Scene {
     if (this.sounds?.pieceMove) {
       this.sounds.pieceMove.play();
     }
+  }
+  
+  // Regenerate board with a specific seed for multiplayer consistency
+  regenerateBoardWithSeed(seed) {
+    console.log('Regenerating board with seed:', seed);
+    
+    // Store current board config
+    const boardConfig = {
+      size: this.board.size,
+      hexSize: this.board.hexSize,
+      rotationDeg: this.board.rotationDeg,
+      blockedPercentage: this.board.blockedPercentage,
+      boardSeed: seed
+    };
+    
+    // Remove existing board
+    this.board.container.destroy();
+    
+    // Create new board with seed
+    this.board = new Board(this, boardConfig);
+    this.board.generate();
+    
+    // Reattach hex click listeners
+    this.board.hexMap.forEach(hex => {
+      const hitPoly = hex.getData('hit');
+      if (hitPoly) {
+        hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
+      }
+    });
+    
+    // Update gameManager board reference
+    this.gameManager.board = this.board;
+    
+    console.log('Board regenerated with seed:', seed);
   }
   
   playJumpSound() {
@@ -147,13 +225,16 @@ export class GameScene extends Phaser.Scene {
     const w = this.scale.width;
     const musicIcon = this.game.music.isPlaying ? '🎵' : '🔇';
     
-    this.musicToggle = this.add.text(w - 20, 20, musicIcon, 
+    this.musicToggle = this.add.text(
+      w - Config.UI.MUSIC_TOGGLE_OFFSET, 
+      Config.UI.MUSIC_TOGGLE_OFFSET, 
+      musicIcon, 
       Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE)
-    ).setOrigin(1, 0).setInteractive({ useHandCursor: true }).setDepth(200);
+    ).setOrigin(1, 0).setInteractive({ useHandCursor: true }).setDepth(Config.UI.MUSIC_TOGGLE_DEPTH);
     
     this.musicToggle.on('pointerdown', () => this.toggleMusic());
-    this.musicToggle.on('pointerover', () => this.musicToggle.setScale(1.2));
-    this.musicToggle.on('pointerout', () => this.musicToggle.setScale(1.0));
+    this.musicToggle.on('pointerover', () => this.musicToggle.setScale(Config.UI.MUSIC_TOGGLE_SCALE_HOVER));
+    this.musicToggle.on('pointerout', () => this.musicToggle.setScale(Config.UI.MUSIC_TOGGLE_SCALE_NORMAL));
   }
   
   toggleMusic() {
@@ -176,38 +257,69 @@ export class GameScene extends Phaser.Scene {
    * Get AI configuration based on difficulty level
    */
   getAIOptions(difficulty) {
-    const baseWeights = {
-      pieceDiff: 4.0,
-      oppMobility: 2.5,
-      centerControl: 1.2,
-      risk: 1.5,
-      jitter: 0.3
-    };
+    const baseWeights = Config.AI.BASE_WEIGHTS;
     
     switch (difficulty.difficulty) {
       case 'hard':
         return {
           weights: {
             ...baseWeights,
-            pieceDiff: 4.5,     // More aggressive about piece advantage
-            oppMobility: 3.0,   // Better at limiting opponent moves
-            centerControl: 1.5, // Better positioning
-            risk: 1.2           // More willing to take risks
+            ...Config.AI.DIFFICULTY_WEIGHTS.HARD
           }
         };
       case 'expert':
         return {
           weights: {
             ...baseWeights,
-            pieceDiff: 5.0,     // Very aggressive about piece advantage
-            oppMobility: 3.5,   // Excellent at limiting opponent moves
-            centerControl: 2.0, // Excellent positioning
-            risk: 1.0,          // Calculated risks
-            jitter: 0.1         // More consistent play
+            ...Config.AI.DIFFICULTY_WEIGHTS.EXPERT
           }
         };
       default: // normal
         return { weights: baseWeights };
     }
+  }
+
+  // Method to completely cleanup online state when leaving the game
+  cleanupOnlineState() {
+    console.log('GameScene: Cleaning up online state');
+    
+    // Disconnect network client
+    if (this.networkClient) {
+      this.networkClient.disconnect();
+      this.networkClient = null;
+    }
+    
+    // Cleanup chat UI
+    if (this.chatUI) {
+      this.chatUI.cleanup();
+      this.chatUI = null;
+    }
+    
+    // Cleanup mode handler
+    if (this.modeHandler && this.modeHandler.cleanup) {
+      this.modeHandler.cleanup();
+      this.modeHandler = null;
+    }
+    
+    // Clear any online-specific game manager state
+    if (this.gameManager) {
+      this.gameManager.networkPlayerId = null;
+      this.gameManager.gameMode = null;
+    }
+    
+    console.log('GameScene: Online state cleanup complete');
+  }
+
+  // Called when scene is being shutdown
+  shutdown() {
+    console.log('GameScene: Shutdown called');
+    
+    // Cleanup online state if we're in online mode
+    if (this.mode === 'online') {
+      this.cleanupOnlineState();
+    }
+    
+    // Call parent shutdown
+    super.shutdown();
   }
 }

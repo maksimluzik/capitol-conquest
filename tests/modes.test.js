@@ -6,6 +6,7 @@ import { Config } from '../src/config.js';
 import { AI } from '../src/AI.js';
 import { NetworkClient } from '../src/online/NetworkClient.js';
 import { ChatUI } from '../src/online/ChatUI.js';
+import { EventEmitter } from 'events';
 
 // Utility stub for chat UI expectations
 function createStubSceneForChat() {
@@ -13,10 +14,14 @@ function createStubSceneForChat() {
     add: {
       text: () => ({
         setOrigin() { return this; },
-        setDepth() { return this; }
+        setDepth() { return this; },
+        setText() { return this; }
       })
     },
-    scale: { height: 600 }
+    scale: { height: 600, width: 800 },
+    board: { hexMap: new Map() },
+    events: new EventEmitter(),
+    time: { addEvent: () => {} }
   };
 }
 
@@ -53,4 +58,25 @@ test('OnlineMultiplayerMode.setup initializes network and chat', () => {
   mode.setup();
   assert.ok(mode.network instanceof NetworkClient);
   assert.ok(mode.chat instanceof ChatUI);
+});
+
+test('ChatUI only exists in online mode', () => {
+  const onlineScene = createStubSceneForChat();
+  const online = new OnlineMultiplayerMode(onlineScene, {});
+  online.setup();
+  assert.ok(online.chat instanceof ChatUI);
+
+  const singleScene = {
+    ...createStubSceneForChat(),
+    getAIOptions: () => ({ weights: {} }),
+    gameManager: { humanPlayerId: 1 }
+  };
+  const single = new SinglePlayerMode(singleScene, { difficulty: Config.DIFFICULTY.DEFAULT });
+  single.setup();
+  assert.equal(single.chat, undefined);
+
+  const localScene = createStubSceneForChat();
+  const local = new LocalMultiplayerMode(localScene, {});
+  local.setup?.();
+  assert.equal(local.chat, undefined);
 });

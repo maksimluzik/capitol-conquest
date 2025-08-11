@@ -124,6 +124,50 @@ export class UIManager {
     return this.skipBtn;
   }
 
+  addOnlineButtons() {
+    // For online mode, add only leave game button
+    const padding = this.layout.padding;
+    const titleHeight = this.layout.isMobile ? 35 : 45;
+    const scoreTextY = padding + titleHeight + (this.layout.isMobile ? 32 : 48);
+    const buttonY = scoreTextY + (this.layout.isMobile ? 40 : 60);
+    
+    // Add a "Leave Game" button for online mode
+    this.leaveBtn = this.scene.add.text(padding, buttonY, '[Leave Game]',
+      Config.textStyle(Config.FONT_SIZES.TINY, Config.COLORS.TEXT_SILVER)
+    ).setDepth(100).setInteractive({ useHandCursor: true });
+    
+    this.leaveBtn.on('pointerover', () => this.leaveBtn.setStyle({ color: Config.COLORS.TEXT_RED }));
+    this.leaveBtn.on('pointerout', () => this.leaveBtn.setStyle({ color: Config.COLORS.TEXT_SILVER }));
+    this.leaveBtn.on('pointerdown', () => {
+      console.log('Leave button pressed - initiating complete disconnect');
+      
+      // Use the scene's comprehensive cleanup method
+      if (this.scene.cleanupOnlineState) {
+        this.scene.cleanupOnlineState();
+      } else {
+        // Fallback cleanup if method doesn't exist
+        if (this.scene.networkClient) {
+          this.scene.networkClient.disconnect();
+          this.scene.networkClient = null;
+        }
+        if (this.scene.chatUI) {
+          this.scene.chatUI.cleanup();
+          this.scene.chatUI = null;
+        }
+        if (this.scene.modeHandler && this.scene.modeHandler.cleanup) {
+          this.scene.modeHandler.cleanup();
+        }
+      }
+      
+      // Force a complete scene restart to ensure clean state
+      this.scene.scene.start('MenuScene');
+      
+      console.log('Complete disconnect and scene cleanup performed');
+    });
+    
+    return { leaveBtn: this.leaveBtn };
+  }
+
   addForfeitButton(onForfeit) {
     if (this.forfeitBtn) return this.forfeitBtn;
     
@@ -274,12 +318,16 @@ export class UIManager {
     }
     
     // Reposition buttons if they exist - use same dynamic positioning as creation
-    if (this.skipBtn || this.forfeitBtn) {
+    if (this.skipBtn || this.forfeitBtn || this.leaveBtn) {
       const scoreTextY = padding + titleHeight + (this.layout.isMobile ? 32 : 48);
       
       if (this.skipBtn) {
         const skipButtonY = scoreTextY + (this.layout.isMobile ? 40 : 60);
         this.skipBtn.setPosition(padding, skipButtonY);
+      }
+      if (this.leaveBtn) {
+        const leaveButtonY = scoreTextY + (this.layout.isMobile ? 40 : 60);
+        this.leaveBtn.setPosition(padding, leaveButtonY);
       }
       if (this.forfeitBtn) {
         const forfeitButtonY = scoreTextY + (this.layout.isMobile ? 60 : 85);
@@ -290,6 +338,104 @@ export class UIManager {
     // Reposition menu button if it exists
     if (this.menuBtn) {
       this.menuBtn.setPosition(width/2, height/2 + 80);
+    }
+  }
+
+  showMessage(text, duration = 3000) {
+    // Display a temporary message to the player
+    if (this.messageText) {
+      this.messageText.destroy();
+    }
+
+    const centerX = this.scene.scale.width / 2;
+    const centerY = this.scene.scale.height / 2;
+
+    this.messageText = this.scene.add.text(centerX, centerY - 50, text, {
+      fontSize: this.layout.isMobile ? Config.FONT_SIZES.SMALL : Config.FONT_SIZES.MEDIUM,
+      fill: Config.COLORS.TEXT_YELLOW,
+      fontFamily: Config.FONTS.PRIMARY,
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center'
+    }).setOrigin(0.5).setDepth(1000);
+
+    // Fade in effect
+    this.messageText.setAlpha(0);
+    this.scene.tweens.add({
+      targets: this.messageText,
+      alpha: 1,
+      duration: 300,
+      ease: 'Power2'
+    });
+
+    // Auto-remove after duration
+    this.scene.time.delayedCall(duration, () => {
+      if (this.messageText) {
+        this.scene.tweens.add({
+          targets: this.messageText,
+          alpha: 0,
+          duration: 300,
+          ease: 'Power2',
+          onComplete: () => {
+            if (this.messageText) {
+              this.messageText.destroy();
+              this.messageText = null;
+            }
+          }
+        });
+      }
+    });
+  }
+
+  cleanup() {
+    // Clean up all UI elements
+    if (this.turnText) {
+      this.turnText.destroy();
+      this.turnText = null;
+    }
+    if (this.scoreText) {
+      this.scoreText.destroy();
+      this.scoreText = null;
+    }
+    if (this.gameOverText) {
+      this.gameOverText.destroy();
+      this.gameOverText = null;
+    }
+    if (this.cumulativeText) {
+      this.cumulativeText.destroy();
+      this.cumulativeText = null;
+    }
+    if (this.skipBtn) {
+      this.skipBtn.destroy();
+      this.skipBtn = null;
+    }
+    if (this.forfeitBtn) {
+      this.forfeitBtn.destroy();
+      this.forfeitBtn = null;
+    }
+    if (this.leaveBtn) {
+      this.leaveBtn.destroy();
+      this.leaveBtn = null;
+    }
+    if (this.menuBtn) {
+      this.menuBtn.destroy();
+      this.menuBtn = null;
+    }
+    if (this.forfeitModal) {
+      this.forfeitModal.destroy();
+      this.forfeitModal = null;
+    }
+    if (this.messageText) {
+      this.messageText.destroy();
+      this.messageText = null;
+    }
+    if (this.titleText) {
+      this.titleText.destroy();
+      this.titleText = null;
+    }
+    if (this.musicToggleBtn) {
+      this.musicToggleBtn.destroy();
+      this.musicToggleBtn = null;
     }
   }
 }

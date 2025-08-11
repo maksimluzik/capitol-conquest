@@ -315,8 +315,14 @@ Player with the most pieces on the board wins!
 
 ⌨️ CONTROLS:
 • ESC - Return to menu
-• F - Forfeit game (in-game)
-• S - Skip turn (in-game)
+• F - Forfeit game (local games only)
+• S - Skip turn (local games only)
+• ENTER - Send chat message (online games)
+
+💬 ONLINE MULTIPLAYER:
+• Real-time chat with your opponent
+• Turn-based gameplay with visual indicators
+• Automatic matchmaking with other players
 
 💡 STRATEGY TIPS:
 • Use duplicates to expand territory safely
