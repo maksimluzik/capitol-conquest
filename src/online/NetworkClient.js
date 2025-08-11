@@ -101,8 +101,8 @@ export class NetworkClient {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:3000';
     } else {
-      // Production server URL - using HTTP since we don't have SSL setup
-      return 'http://35.237.192.128';
+      // Production server URL - using HTTPs
+      return 'https://server.maksimluzik.com';
     }
   }
 
