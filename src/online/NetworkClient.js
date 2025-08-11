@@ -14,13 +14,23 @@ export class NetworkClient {
       return;
     }
 
+    // If already connected, disconnect first to ensure clean state
+    if (this.socket && this.socket.connected) {
+      console.log('NetworkClient: Disconnecting existing connection before reconnecting');
+      this.disconnect();
+    }
+
     // Load Socket.IO from CDN if not already loaded
     if (typeof io === 'undefined') {
       await this.loadSocketIO();
     }
 
     const target = this.url || this.getServerUrl();
-    this.socket = io(target);
+    console.log('NetworkClient: Connecting to', target);
+    this.socket = io(target, {
+      forceNew: true, // Force a new connection
+      timeout: 10000  // 10 second timeout
+    });
 
     this.socket.on('connect', () => {
       console.log('NetworkClient: connected');

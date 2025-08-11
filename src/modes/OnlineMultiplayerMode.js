@@ -94,8 +94,12 @@ export class OnlineMultiplayerMode extends BaseMode {
 
   setupNetworkEvents() {
     this.scene.events.on('net-joined', (data) => {
-      this.statusText.setText('Connected to Server');
-      this.playerStatusText.setText(`You are Player ${data.playerId}`);
+      if (this.statusText) {
+        this.statusText.setText('Connected to Server');
+      }
+      if (this.playerStatusText) {
+        this.playerStatusText.setText(`You are Player ${data.playerId}`);
+      }
       
       // Update the GameManager with the network player ID
       if (this.scene.gameManager) {
@@ -104,13 +108,21 @@ export class OnlineMultiplayerMode extends BaseMode {
     });
 
     this.scene.events.on('net-waiting', () => {
-      this.statusText.setText('Waiting for Opponent');
-      this.playerStatusText.setText('Looking for another player...');
+      if (this.statusText) {
+        this.statusText.setText('Waiting for Opponent');
+      }
+      if (this.playerStatusText) {
+        this.playerStatusText.setText('Looking for another player...');
+      }
     });
 
     this.scene.events.on('net-matchFound', () => {
-      this.statusText.setText('Opponent Found!');
-      this.playerStatusText.setText('Match found! Preparing game...');
+      if (this.statusText) {
+        this.statusText.setText('Opponent Found!');
+      }
+      if (this.playerStatusText) {
+        this.playerStatusText.setText('Match found! Preparing game...');
+      }
       this.stopLoadingAnimation();
       this.startCountdown();
     });
@@ -151,8 +163,12 @@ export class OnlineMultiplayerMode extends BaseMode {
 
   startCountdown() {
     let count = 3;
-    this.statusText.setText(`Game Starting in ${count}...`);
-    this.playerStatusText.setText('Get ready!');
+    if (this.statusText) {
+      this.statusText.setText(`Game Starting in ${count}...`);
+    }
+    if (this.playerStatusText) {
+      this.playerStatusText.setText('Get ready!');
+    }
     
     const countdownTimer = this.scene.time.addEvent({
       delay: 1000,
@@ -160,9 +176,13 @@ export class OnlineMultiplayerMode extends BaseMode {
       callback: () => {
         count--;
         if (count > 0) {
-          this.statusText.setText(`Game Starting in ${count}...`);
+          if (this.statusText) {
+            this.statusText.setText(`Game Starting in ${count}...`);
+          }
         } else {
-          this.statusText.setText('Starting Game!');
+          if (this.statusText) {
+            this.statusText.setText('Starting Game!');
+          }
         }
       }
     });
@@ -254,9 +274,15 @@ export class OnlineMultiplayerMode extends BaseMode {
     const centerX = this.scene.scale.width / 2;
     const centerY = this.scene.scale.height / 2;
     
-    this.statusText.setText('Connection Failed');
-    this.playerStatusText.setText('Unable to connect to server');
-    this.loadingDots.setText('');
+    if (this.statusText) {
+      this.statusText.setText('Connection Failed');
+    }
+    if (this.playerStatusText) {
+      this.playerStatusText.setText('Unable to connect to server');
+    }
+    if (this.loadingDots) {
+      this.loadingDots.setText('');
+    }
     
     // Show retry button
     const retryStyle = Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE);
@@ -266,8 +292,12 @@ export class OnlineMultiplayerMode extends BaseMode {
       .on('pointerdown', () => {
         retryButton.destroy();
         this.network.connect();
-        this.statusText.setText('Connecting...');
-        this.playerStatusText.setText('');
+        if (this.statusText) {
+          this.statusText.setText('Connecting...');
+        }
+        if (this.playerStatusText) {
+          this.playerStatusText.setText('');
+        }
         this.startLoadingAnimation();
       })
       .on('pointerover', () => retryButton.setTint(0x66ff66))
@@ -293,11 +323,35 @@ export class OnlineMultiplayerMode extends BaseMode {
 
   cleanup() {
     this.stopLoadingAnimation();
+    
+    // Remove all scene event listeners to prevent stale references
+    if (this.scene && this.scene.events) {
+      this.scene.events.off('net-joined');
+      this.scene.events.off('net-waiting');
+      this.scene.events.off('net-matchFound');
+      this.scene.events.off('net-startGame');
+      this.scene.events.off('net-chatMessage');
+      this.scene.events.off('net-opponentLeft');
+      this.scene.events.off('net-connectionError');
+    }
+    
     if (this.network && this.network.socket) {
       this.network.socket.disconnect();
     }
     if (this.chat) {
       this.chat.cleanup();
     }
+    
+    // Clean up UI elements
+    if (this.waitingRoomContainer) {
+      this.waitingRoomContainer.destroy();
+      this.waitingRoomContainer = null;
+    }
+    
+    // Clear references to prevent memory leaks
+    this.statusText = null;
+    this.playerStatusText = null;
+    this.loadingDots = null;
+    this.cancelButton = null;
   }
 }
