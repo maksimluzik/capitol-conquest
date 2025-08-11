@@ -228,7 +228,28 @@ export class OnlineMultiplayerMode extends BaseMode {
     this.scene.scene.start('MenuScene');
   }
 
+  recordOpponentDisconnectWin() {
+    // Record the game as a win by disconnection for global stats
+    if (this.scene.gameManager && this.scene.gameManager.networkPlayerId) {
+      try {
+        const winner = this.scene.gameManager.players[this.scene.gameManager.networkPlayerId];
+        const gameDuration = this.scene.gameManager.gameStartTime 
+          ? Math.floor((Date.now() - this.scene.gameManager.gameStartTime) / 1000)
+          : 0;
+        
+        // Record as win by opponent disconnection
+        this.scene.gameManager.recordGlobalStats(winner, gameDuration);
+        console.log('Recorded opponent disconnect as win for player', this.scene.gameManager.networkPlayerId);
+      } catch (error) {
+        console.warn('Failed to record opponent disconnect win:', error);
+      }
+    }
+  }
+
   showOpponentLeftMessage() {
+    // Record this as a win for the remaining player before showing disconnect message
+    this.recordOpponentDisconnectWin();
+    
     // Create a prominent overlay for the disconnect message
     const centerX = this.scene.scale.width / 2;
     const centerY = this.scene.scale.height / 2;

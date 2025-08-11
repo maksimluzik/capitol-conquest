@@ -31,6 +31,7 @@ export class GameManager {
     this.selectedPiece = null;
     this.validMoves = [];
     this.gameEnded = false;
+    this.globalStatsRecorded = false; // Prevent duplicate global stats recording
     this.tokenLayer = scene.add.layer();
   }
 
@@ -732,6 +733,12 @@ export class GameManager {
    * Record game result to global statistics
    */
   async recordGlobalStats(winner, gameDuration) {
+    // Prevent duplicate recording
+    if (this.globalStatsRecorded) {
+      console.log('Global stats already recorded for this game, skipping duplicate');
+      return;
+    }
+    
     try {
       const gameResult = {
         winner: winner ? winner.name : 'Draw',
@@ -745,23 +752,30 @@ export class GameManager {
       };
 
       await this.globalStats.recordGameResult(gameResult);
-      console.log('Global stats updated successfully');
+      this.globalStatsRecorded = true; // Mark as recorded
+      console.log('Global stats updated successfully for', this.gameMode, 'mode');
     } catch (error) {
       console.warn('Failed to update global stats:', error);
     }
   }
 
   /**
-   * Determine player choice for single player mode
+   * Determine player choice for single player mode and online multiplayer
    */
   getPlayerChoice() {
-    if (this.gameMode !== 'single') return null;
+    if (this.gameMode === 'single') {
+      // Check which side the human is playing in single player
+      if (this.humanPlayerId === 1) return 'red'; // Republican
+      if (this.humanPlayerId === 2) return 'blue'; // Democrat
+      return null;
+    } else if (this.gameMode === 'online' && this.networkPlayerId) {
+      // For online mode, return which party the network player is playing
+      if (this.networkPlayerId === 1) return 'red'; // Republican
+      if (this.networkPlayerId === 2) return 'blue'; // Democrat
+      return null;
+    }
     
-    // Check which side the human is playing
-    if (this.humanPlayerId === 1) return 'red'; // Republican
-    if (this.humanPlayerId === 2) return 'blue'; // Democrat
-    
-    return null;
+    return null; // For local two-player mode
   }
 
   aiTurn() {
