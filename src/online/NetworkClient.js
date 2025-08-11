@@ -47,8 +47,15 @@ export class NetworkClient {
       
       // Load the game state (includes pieces) from server
       if (this.scene.gameManager && state) {
+        // Regenerate board with server seed for consistency before loading state
+        if (state.boardSeed) {
+          this.scene.gameManager.regenerateBoardWithSeed(state.boardSeed);
+          console.log('Board regenerated with seed:', state.boardSeed);
+        }
+        
         this.scene.gameManager.loadState(state);
         this.scene.gameManager.currentPlayer = firstTurn;
+        
         console.log('Game state loaded, current player:', firstTurn);
       }
       
@@ -60,6 +67,7 @@ export class NetworkClient {
     });
 
     this.socket.on('chatMessage', data => {
+      console.log('NetworkClient: Received chat message:', data);
       this.scene.events.emit('net-chatMessage', data);
     });
 
@@ -106,7 +114,45 @@ export class NetworkClient {
 
   sendChat(message) {
     if (this.socket) {
+      console.log('NetworkClient: Sending chat message:', message);
       this.socket.emit('chatMessage', message);
+    } else {
+      console.error('NetworkClient: Cannot send chat - no socket connection');
     }
+  }
+
+  disconnect() {
+    if (this.socket) {
+      console.log('NetworkClient: Manually disconnecting from game');
+      
+      // Remove all event listeners to prevent any lingering callbacks
+      this.socket.removeAllListeners();
+      
+      // Force disconnect from server
+      this.socket.disconnect(true); // true = force close
+      
+      // Clear the socket reference
+      this.socket = null;
+      
+      // Clear any stored connection state
+      this.roomId = null;
+      this.playerId = null;
+      
+      console.log('NetworkClient: Complete disconnection and cleanup performed');
+    } else {
+      console.log('NetworkClient: No active socket to disconnect');
+    }
+  }
+
+  // Method to check if we're connected
+  isConnected() {
+    return this.socket && this.socket.connected;
+  }
+
+  // Method to completely reset the client state
+  reset() {
+    this.disconnect();
+    this.scene = null;
+    console.log('NetworkClient: Complete reset performed');
   }
 }

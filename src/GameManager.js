@@ -260,8 +260,28 @@ export class GameManager {
   }
 
   onPieceDown(piece) {
-  if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
-    if (piece.data.values.player !== this.currentPlayer) return;
+    if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
+    
+    // In online mode, use network player ID for validation
+    if (this.gameMode === 'online') {
+      // Must be this player's turn
+      if (!this.networkPlayerId || this.networkPlayerId !== this.currentPlayer) {
+        console.log(`Not your turn. You are player ${this.networkPlayerId}, current turn: ${this.currentPlayer}`);
+        this.showTurnWarning();
+        return;
+      }
+      
+      // Piece must belong to the network player
+      if (piece.data.values.player !== this.networkPlayerId) {
+        console.log(`Cannot select opponent's piece. Piece belongs to player ${piece.data.values.player}, you are player ${this.networkPlayerId}`);
+        this.showOwnershipWarning();
+        return;
+      }
+    } else {
+      // Local game validation
+      if (piece.data.values.player !== this.currentPlayer) return;
+    }
+    
     if (this.selectedPiece === piece) return; // already selected
     this.clearHighlights();
     this.selectedPiece = piece;
@@ -342,18 +362,33 @@ export class GameManager {
   onHexClicked(hex) {
     if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
     
-    // In online mode, only allow moves if it's this player's turn and they are the current player
-    if (this.gameMode === 'online' && this.networkPlayerId && this.networkPlayerId !== this.currentPlayer) {
-      console.log(`Not your turn in online mode. You are player ${this.networkPlayerId}, current turn: ${this.currentPlayer}`);
-      return;
+    const piece = hex.data.values.piece;
+    
+    // In online mode, enforce strict turn and ownership validation
+    if (this.gameMode === 'online') {
+      // Must be this player's turn
+      if (!this.networkPlayerId || this.networkPlayerId !== this.currentPlayer) {
+        console.log(`Not your turn in online mode. You are player ${this.networkPlayerId}, current turn: ${this.currentPlayer}`);
+        this.showTurnWarning();
+        return;
+      }
+      
+      // If clicking on a piece, it must belong to the current player
+      if (piece && piece.data.values.player !== this.currentPlayer) {
+        console.log(`Cannot select opponent's piece. Piece belongs to player ${piece.data.values.player}, you are player ${this.currentPlayer}`);
+        this.showOwnershipWarning();
+        return;
+      }
     }
     
-    const piece = hex.data.values.piece;
     if (!this.selectedPiece) {
       if (piece && piece.data.values.player === this.currentPlayer) {
         this.selectPiece(piece);
       } else if (piece) {
         console.log(`Cannot select piece belonging to player ${piece.data.values.player}, current player is ${this.currentPlayer}`);
+        if (this.gameMode === 'online') {
+          this.showOwnershipWarning();
+        }
       }
       return;
     }
@@ -530,16 +565,14 @@ export class GameManager {
   endTurn() {
     this.updateScores();
     this.ui.updateScores(this.players[1].score, this.players[2].score);
-  if (this.checkGameOver()) { this._finalizeGame(); return; }
+    if (this.checkGameOver()) { this._finalizeGame(); return; }
     this.currentPlayer = (this.currentPlayer === 1) ? 2 : 1;
     
-    // Show appropriate turn text for online mode
+    // Always show appropriate turn text for online mode
     if (this.gameMode === 'online' && this.networkPlayerId) {
-      const isMyTurn = this.networkPlayerId === this.currentPlayer;
-      const playerName = this.players[this.currentPlayer].name;
-      const turnText = isMyTurn ? `Your Turn (${playerName})` : `Opponent's Turn (${playerName})`;
-      this.ui.updateTurn(turnText);
-      this.ui.flashTurn(turnText);
+      this.updateOnlineTurnDisplay();
+      // Update visual states of pieces for the new turn
+      this.updatePieceVisualStates();
     } else {
       this.ui.updateTurn(this.players[this.currentPlayer].name);
       this.ui.flashTurn(this.players[this.currentPlayer].name);
@@ -551,7 +584,26 @@ export class GameManager {
     }
   }
 
+  updateOnlineTurnDisplay() {
+    if (!this.networkPlayerId) return;
+    
+    const isMyTurn = this.networkPlayerId === this.currentPlayer;
+    const playerName = this.players[this.currentPlayer].name;
+    const turnText = isMyTurn ? `Your Turn (${playerName})` : `Opponent's Turn (${playerName})`;
+    
+    console.log(`Turn update: Player ${this.networkPlayerId}, Current: ${this.currentPlayer}, My turn: ${isMyTurn}`);
+    
+    this.ui.updateTurn(turnText);
+    this.ui.flashTurn(turnText);
+  }
+
   skipTurn() {
+    // Disable skip in online mode completely
+    if (this.gameMode === 'online') {
+      console.log('Skip turn disabled in online mode');
+      return;
+    }
+    
     // Allow only human to skip own turn and only if game hasn't ended
     if (this.players[this.currentPlayer].isAI || this.gameEnded) return;
     this.clearHighlights();
@@ -560,6 +612,12 @@ export class GameManager {
   }
 
   forfeitGame() {
+    // Disable forfeit in online mode (should handle disconnection differently)
+    if (this.gameMode === 'online') {
+      console.log('Forfeit disabled in online mode');
+      return;
+    }
+    
     // Allow only human to forfeit and only if game hasn't ended
     if (this.gameEnded) return;
     
@@ -734,6 +792,14 @@ export class GameManager {
     return { pieces, currentPlayer: this.currentPlayer };
   }
 
+  // Method to regenerate board with seed for multiplayer consistency
+  regenerateBoardWithSeed(seed) {
+    if (this.scene && this.scene.regenerateBoardWithSeed) {
+      this.scene.regenerateBoardWithSeed(seed);
+      console.log('GameManager: Board regenerated with seed:', seed);
+    }
+  }
+
   loadState(state) {
     if (!state) {
       console.log('GameManager: No state to load');
@@ -790,5 +856,146 @@ export class GameManager {
     this.selectedPiece = piece;
     const networkMove = { q: move.toQ, r: move.toR, type: move.type, isNetworkMove: true };
     this.executeMove(networkMove);
+  }
+
+  showTurnWarning() {
+    // Flash the turn indicator to show it's not their turn
+    if (this.ui.turnText) {
+      this.scene.tweens.add({
+        targets: this.ui.turnText,
+        scaleX: 1.1,
+        scaleY: 1.1,
+        tint: 0xff6666,
+        duration: 200,
+        yoyo: true,
+        onComplete: () => {
+          this.ui.turnText.clearTint();
+        }
+      });
+    }
+  }
+
+  showOwnershipWarning() {
+    // Show a visual warning that they can't select opponent pieces
+    const centerX = this.scene.scale.width / 2;
+    const centerY = this.scene.scale.height / 2 + 100;
+    
+    const warningText = this.scene.add.text(centerX, centerY, "Can't select opponent's pieces!", 
+      Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_RED))
+      .setOrigin(0.5)
+      .setDepth(500)
+      .setAlpha(0);
+    
+    this.scene.tweens.add({
+      targets: warningText,
+      alpha: 1,
+      duration: 200,
+      yoyo: true,
+      hold: 1000,
+      onComplete: () => warningText.destroy()
+    });
+  }
+
+  updatePieceVisualStates() {
+    // Update visual states of all pieces based on current turn and game mode
+    if (this.gameMode !== 'online' || !this.networkPlayerId) return;
+    
+    this.board.forEachHex(hex => {
+      const piece = hex.getData('piece');
+      if (piece) {
+        const isMyPiece = piece.data.values.player === this.networkPlayerId;
+        const isMyTurn = this.networkPlayerId === this.currentPlayer;
+        const originalColor = this.players[piece.data.values.player].color;
+        
+        // Set visual state based on ownership and turn
+        if (isMyPiece && isMyTurn) {
+          // My piece, my turn - fully active with original color
+          piece.setAlpha(1.0);
+          this.updatePieceColor(piece, originalColor, 1.0);
+        } else if (isMyPiece && !isMyTurn) {
+          // My piece, not my turn - slightly dimmed but keep original color
+          piece.setAlpha(0.85);
+          this.updatePieceColor(piece, originalColor, 0.8);
+        } else {
+          // Opponent's piece - more dimmed but still show original color
+          piece.setAlpha(0.7);
+          this.updatePieceColor(piece, originalColor, 0.6);
+        }
+      }
+    });
+  }
+
+  // Helper method to update piece color for Graphics objects
+  updatePieceColor(piece, color, brightness = 1.0) {
+    // Clear existing graphics
+    piece.clear();
+    
+    // Get stored geometry data
+    const pts = piece.getData('pts');
+    const radius = piece.getData('radius');
+    if (!pts || !radius) return;
+    
+    // Apply brightness to color
+    const adjustedColor = this.adjustColorBrightness(color, brightness);
+    
+    // Redraw the piece with new color
+    this.redrawPiece(piece, pts, radius, adjustedColor);
+  }
+
+  // Helper to adjust color brightness
+  adjustColorBrightness(color, brightness) {
+    const r = (color >> 16) & 0xFF;
+    const g = (color >> 8) & 0xFF;
+    const b = color & 0xFF;
+    
+    const newR = Math.min(255, Math.floor(r * brightness));
+    const newG = Math.min(255, Math.floor(g * brightness));
+    const newB = Math.min(255, Math.floor(b * brightness));
+    
+    return (newR << 16) | (newG << 8) | newB;
+  }
+
+  // Helper to redraw piece graphics
+  redrawPiece(g, pts, radius, baseColor) {
+    // Shadow layer
+    g.fillStyle(0x000000, 0.25);
+    g.beginPath();
+    g.moveTo(pts[0].x + 3, pts[0].y + 4);
+    for (let i=1;i<6;i++) g.lineTo(pts[i].x + 3, pts[i].y + 4);
+    g.closePath();
+    g.fillPath();
+    
+    // Base
+    g.lineStyle(2, 0x111111, 0.9);
+    g.fillStyle(baseColor, 1);
+    g.beginPath();
+    g.moveTo(pts[0].x, pts[0].y);
+    for (let i=1;i<6;i++) g.lineTo(pts[i].x, pts[i].y);
+    g.closePath(); g.fillPath(); g.strokePath();
+    
+    // Inner gradient approximation (concentric scaled hexes fading)
+    const steps = 4;
+    for (let s=1; s<=steps; s++) {
+      const t = s/steps;
+      const fade = 0.10 * (1-t);
+      const scale = 1 - 0.18*t;
+      g.fillStyle(0xffffff, fade);
+      g.beginPath();
+      pts.forEach((p,i)=> {
+        const x = p.x * scale - 1.5 * (1-t);
+        const y = p.y * scale - 1.0 * (1-t);
+        if (i===0) g.moveTo(x,y); else g.lineTo(x,y);
+      });
+      g.closePath(); g.fillPath();
+    }
+    
+    // Rim light on top-left edges
+    g.lineStyle(1.5, 0xffffff, 0.4);
+    for (let i=0; i<3; i++) {
+      g.beginPath();
+      g.moveTo(pts[i].x, pts[i].y);
+      g.lineTo(pts[i+1].x, pts[i+1].y);
+      g.strokePath();
+    }
   }
 }

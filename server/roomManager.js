@@ -30,6 +30,9 @@ class GameRoom {
     // Initialize a proper game state with starting pieces
     const s = 5; // Standard board size (matches Config.BOARD.DEFAULT_SIZE)
     
+    // Generate a board seed for consistent board layout across clients
+    const boardSeed = Math.floor(Math.random() * 1000000);
+    
     // Correct corner positions for both players (6 corners of hexagon)
     // Player 1 gets 3 corners, Player 2 gets 3 opposite corners
     const initialPieces = [
@@ -49,7 +52,8 @@ class GameRoom {
       currentPlayer: this.turn,
       gameStarted: true,
       startTime: new Date(),
-      moveHistory: []
+      moveHistory: [],
+      boardSeed: boardSeed  // Add board seed to game state
     };
     
     console.log(`Game initialized in room ${this.id}, player ${this.turn} goes first`);

@@ -7,8 +7,17 @@ export class OnlineMultiplayerMode extends BaseMode {
   setup() {
     this.createWaitingRoomUI();
     
-    // Disable board interaction until game starts
-    this.scene.board.hexMap.forEach(hex => hex.getData('hit')?.disableInteractive?.());
+    // Disable board interaction until game starts - with null checks
+    if (this.scene.board && this.scene.board.hexMap) {
+      this.scene.board.hexMap.forEach(hex => {
+        const hitPoly = hex.getData('hit');
+        if (hitPoly && hitPoly.disableInteractive) {
+          hitPoly.disableInteractive();
+        }
+      });
+    } else {
+      console.warn('OnlineMultiplayerMode: Board not ready yet, interactions will be disabled when board is available');
+    }
 
     this.network = new NetworkClient(this.scene);
     this.setupNetworkEvents();
@@ -114,17 +123,12 @@ export class OnlineMultiplayerMode extends BaseMode {
       // Update UI with current player info and show which player you are
       this.scene.gameManager.updateScores();
       
-      const myPlayerId = this.scene.gameManager.networkPlayerId;
-      const currentPlayer = this.scene.gameManager.currentPlayer;
-      const isMyTurn = myPlayerId === currentPlayer;
+      console.log(`Game started: I am player ${this.scene.gameManager.networkPlayerId}, current turn: ${this.scene.gameManager.currentPlayer}`);
       
-      console.log(`Game started: I am player ${myPlayerId}, current turn: ${currentPlayer}, my turn: ${isMyTurn}`);
-      
-      // Update turn display with player identity
-      const playerName = this.scene.gameManager.players[currentPlayer].name;
-      this.scene.gameManager.ui.updateTurn(
-        isMyTurn ? `Your Turn (${playerName})` : `Opponent's Turn (${playerName})`
-      );
+      // Use the consistent turn display method
+      this.scene.gameManager.updateOnlineTurnDisplay();
+      // Update visual states of pieces for the initial turn
+      this.scene.gameManager.updatePieceVisualStates();
       
       this.scene.gameManager.ui.updateScores(
         this.scene.gameManager.players[1].score, 
@@ -205,16 +209,43 @@ export class OnlineMultiplayerMode extends BaseMode {
   }
 
   showOpponentLeftMessage() {
-    // Show message and return to menu after delay
+    // Create a prominent overlay for the disconnect message
     const centerX = this.scene.scale.width / 2;
     const centerY = this.scene.scale.height / 2;
     
-    const messageStyle = Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_WHITE);
-    const messageText = this.scene.add.text(centerX, centerY, 'Opponent Left\nReturning to Menu...', messageStyle)
-      .setOrigin(0.5)
-      .setDepth(400);
+    // Create semi-transparent background overlay
+    const overlay = this.scene.add.graphics();
+    overlay.fillStyle(0x000000, 0.8);
+    overlay.fillRect(0, 0, this.scene.scale.width, this.scene.scale.height);
+    overlay.setDepth(500);
     
-    this.scene.time.delayedCall(3000, () => {
+    // Main message
+    const messageStyle = Config.textStyle(Config.FONT_SIZES.LARGE, Config.COLORS.TEXT_RED);
+    const messageText = this.scene.add.text(centerX, centerY - 40, '⚠️ OPPONENT DISCONNECTED', messageStyle)
+      .setOrigin(0.5)
+      .setDepth(501);
+    
+    // Secondary message
+    const subMessageStyle = Config.textStyle(Config.FONT_SIZES.MEDIUM, Config.COLORS.TEXT_WHITE);
+    const subMessageText = this.scene.add.text(centerX, centerY + 20, 'Your opponent has left the game\nReturning to menu in 5 seconds...', subMessageStyle)
+      .setOrigin(0.5)
+      .setAlign('center')
+      .setDepth(501);
+    
+    // Return to menu button (immediate option)
+    const buttonStyle = Config.textStyle(Config.FONT_SIZES.SMALL, Config.COLORS.TEXT_YELLOW);
+    const returnButton = this.scene.add.text(centerX, centerY + 100, '[Return to Menu Now]', buttonStyle)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(501)
+      .on('pointerover', () => returnButton.setStyle({ color: Config.COLORS.TEXT_WHITE }))
+      .on('pointerout', () => returnButton.setStyle({ color: Config.COLORS.TEXT_YELLOW }))
+      .on('pointerdown', () => {
+        this.scene.scene.start('MenuScene');
+      });
+    
+    // Auto-return after 5 seconds
+    this.scene.time.delayedCall(5000, () => {
       this.scene.scene.start('MenuScene');
     });
   }
@@ -246,15 +277,18 @@ export class OnlineMultiplayerMode extends BaseMode {
   }
 
   enableBoard() {
-    // Re-enable all hex interactions
-    this.scene.board.hexMap.forEach(hex => {
-      const hitPoly = hex.getData('hit');
-      if (hitPoly) {
-        hitPoly.setInteractive();
-      }
-    });
-    
-    console.log('Board interaction enabled for online multiplayer');
+    // Re-enable all hex interactions with proper null checks
+    if (this.scene.board && this.scene.board.hexMap) {
+      this.scene.board.hexMap.forEach(hex => {
+        const hitPoly = hex.getData('hit');
+        if (hitPoly && hitPoly.setInteractive) {
+          hitPoly.setInteractive();
+        }
+      });
+      console.log('Board interaction enabled for online multiplayer');
+    } else {
+      console.warn('OnlineMultiplayerMode: Cannot enable board - board not available');
+    }
   }
 
   cleanup() {

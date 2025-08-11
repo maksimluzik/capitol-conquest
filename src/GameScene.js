@@ -31,6 +31,33 @@ export class GameScene extends Phaser.Scene {
   }
 
   startGame() {
+    // Clean up any existing game state first
+    if (this.board) {
+      // Destroy the board's visual container
+      if (this.board.container) {
+        this.board.container.destroy();
+      }
+      // Clear board data
+      this.board.hexMap?.clear();
+      this.board.blockedHexes?.clear();
+      this.board = null;
+    }
+    if (this.ui) {
+      if (this.ui.cleanup) {
+        this.ui.cleanup();
+      }
+      this.ui = null;
+    }
+    if (this.gameManager) {
+      this.gameManager = null;
+    }
+    if (this.modeHandler) {
+      if (this.modeHandler.cleanup) {
+        this.modeHandler.cleanup();
+      }
+      this.modeHandler = null;
+    }
+    
     // Get responsive layout settings
     const layout = Config.DEVICE.getMobileLayout(this);
     
@@ -58,22 +85,35 @@ export class GameScene extends Phaser.Scene {
     // Let mode perform any additional setup (AI, networking, etc.)
     this.modeHandler?.setup?.();
 
-    this.board.hexMap.forEach(hex => {
-      const hitPoly = hex.getData('hit');
-      if (hitPoly) { // Only add listeners for interactive hexes (non-blocked)
-        hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
-      }
-    });
+    // Ensure board is properly initialized before setting up interactions
+    if (this.board && this.board.hexMap) {
+      this.board.hexMap.forEach(hex => {
+        const hitPoly = hex.getData('hit');
+        if (hitPoly) { // Only add listeners for interactive hexes (non-blocked)
+          hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
+        }
+      });
+    } else {
+      console.error('GameScene: Board not properly initialized');
+    }
     
     // Only setup initial pieces if the mode allows it (online mode will get pieces from server)
     if (!this.modeHandler?.shouldSetupInitialPieces || this.modeHandler.shouldSetupInitialPieces()) {
       this.gameManager.setupInitialPieces();
     }
 
-    // Add skip turn UI and forfeit functionality
-    this.ui.addSkipButton(() => this.gameManager.skipTurn(), () => this.gameManager.forfeitGame());
-    this.input.keyboard.on('keydown-S', () => this.gameManager.skipTurn());
-    this.input.keyboard.on('keydown-F', () => this.gameManager.forfeitGame()); // F key for forfeit
+    // Add skip turn UI and forfeit functionality (disabled for online mode)
+    if (this.mode === 'online') {
+      // In online mode, show different buttons or disable these features
+      this.ui.addOnlineButtons();
+    } else {
+      // Add normal skip/forfeit buttons for local games
+      this.ui.addSkipButton(() => this.gameManager.skipTurn(), () => this.gameManager.forfeitGame());
+      
+      // Add hotkeys for non-online modes
+      this.input.keyboard.on('keydown-S', () => this.gameManager.skipTurn());
+      this.input.keyboard.on('keydown-F', () => this.gameManager.forfeitGame());
+    }
 
     // Add music toggle button
     this.addMusicToggle();
@@ -131,6 +171,40 @@ export class GameScene extends Phaser.Scene {
     if (this.sounds?.pieceMove) {
       this.sounds.pieceMove.play();
     }
+  }
+  
+  // Regenerate board with a specific seed for multiplayer consistency
+  regenerateBoardWithSeed(seed) {
+    console.log('Regenerating board with seed:', seed);
+    
+    // Store current board config
+    const boardConfig = {
+      size: this.board.size,
+      hexSize: this.board.hexSize,
+      rotationDeg: this.board.rotationDeg,
+      blockedPercentage: this.board.blockedPercentage,
+      boardSeed: seed
+    };
+    
+    // Remove existing board
+    this.board.container.destroy();
+    
+    // Create new board with seed
+    this.board = new Board(this, boardConfig);
+    this.board.generate();
+    
+    // Reattach hex click listeners
+    this.board.hexMap.forEach(hex => {
+      const hitPoly = hex.getData('hit');
+      if (hitPoly) {
+        hitPoly.on('pointerdown', () => this.gameManager.onHexClicked(hex));
+      }
+    });
+    
+    // Update gameManager board reference
+    this.gameManager.board = this.board;
+    
+    console.log('Board regenerated with seed:', seed);
   }
   
   playJumpSound() {
@@ -203,5 +277,49 @@ export class GameScene extends Phaser.Scene {
       default: // normal
         return { weights: baseWeights };
     }
+  }
+
+  // Method to completely cleanup online state when leaving the game
+  cleanupOnlineState() {
+    console.log('GameScene: Cleaning up online state');
+    
+    // Disconnect network client
+    if (this.networkClient) {
+      this.networkClient.disconnect();
+      this.networkClient = null;
+    }
+    
+    // Cleanup chat UI
+    if (this.chatUI) {
+      this.chatUI.cleanup();
+      this.chatUI = null;
+    }
+    
+    // Cleanup mode handler
+    if (this.modeHandler && this.modeHandler.cleanup) {
+      this.modeHandler.cleanup();
+      this.modeHandler = null;
+    }
+    
+    // Clear any online-specific game manager state
+    if (this.gameManager) {
+      this.gameManager.networkPlayerId = null;
+      this.gameManager.gameMode = null;
+    }
+    
+    console.log('GameScene: Online state cleanup complete');
+  }
+
+  // Called when scene is being shutdown
+  shutdown() {
+    console.log('GameScene: Shutdown called');
+    
+    // Cleanup online state if we're in online mode
+    if (this.mode === 'online') {
+      this.cleanupOnlineState();
+    }
+    
+    // Call parent shutdown
+    super.shutdown();
   }
 }

@@ -80,9 +80,13 @@ io.on('connection', socket => {
     console.log('Client disconnected:', socket.id);
     
     const room = rooms.getRoomBySocket(socket.id);
-    if (!room) return;
+    if (!room) {
+      console.log('Disconnected client was not in any room');
+      return;
+    }
     
-    console.log(`Player left room ${room.id}`);
+    const playerId = room.getPlayerId(socket.id);
+    console.log(`Player ${playerId} left room ${room.id} - notifying opponent`);
     room.markDisconnected(socket.id);
     socket.to(room.id).emit('opponentLeft');
     
@@ -90,6 +94,8 @@ io.on('connection', socket => {
     if (room.isEmpty()) {
       rooms.removeRoom(room.id);
       console.log(`Removed empty room ${room.id}`);
+    } else {
+      console.log(`Room ${room.id} still has players, keeping it alive`);
     }
   });
 

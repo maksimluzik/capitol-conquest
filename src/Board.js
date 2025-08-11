@@ -1,6 +1,19 @@
 // Board.js - hex grid creation and management with procedural blocked hexes
 import { Config } from './config.js';
 
+// Simple seeded pseudo-random number generator
+class SeededRandom {
+  constructor(seed) {
+    this.seed = seed % 2147483647;
+    if (this.seed <= 0) this.seed += 2147483646;
+  }
+  
+  next() {
+    this.seed = this.seed * 16807 % 2147483647;
+    return (this.seed - 1) / 2147483646;
+  }
+}
+
 export class Board {
   constructor(scene, options) {
     this.scene = scene;
@@ -21,6 +34,10 @@ export class Board {
     
     // Store layout info for later use
     this.layout = layout;
+    
+    // Seeded random for deterministic board generation
+    this.boardSeed = options.boardSeed || Date.now();
+    this.rng = new SeededRandom(this.boardSeed);
   }
 
   axialKey(q, r) { return `${q},${r}`; }
@@ -79,6 +96,11 @@ export class Board {
   generateBlockedHexes() {
     this.blockedHexes.clear();
     
+    // Reset the RNG to ensure deterministic generation
+    this.rng = new SeededRandom(this.boardSeed);
+    
+    console.log(`Generating blocked hexes with seed: ${this.boardSeed}`);
+    
     // Define guaranteed unblocked positions (starting positions)
     const protectedPositions = new Set([
       this.axialKey(-this.size, 0),     // Player 1 start
@@ -121,7 +143,7 @@ export class Board {
     // Distribute blocked hexes using a dispersal algorithm
     let attempts = 0;
     while (this.blockedHexes.size < targetBlocked && attempts < targetBlocked * 3) {
-      const candidate = allPositions[Math.floor(Math.random() * allPositions.length)];
+      const candidate = allPositions[Math.floor(this.rng.next() * allPositions.length)];
       
       // Check if this position would create a large cluster
       if (!this.wouldCreateCluster(candidate.q, candidate.r)) {
@@ -130,7 +152,11 @@ export class Board {
       attempts++;
     }
     
-    console.log(`Generated ${this.blockedHexes.size} blocked hexes out of ${allPositions.length} available positions (${(this.blockedHexes.size/allPositions.length*100).toFixed(1)}%)`);
+    console.log(`Generated ${this.blockedHexes.size} blocked hexes out of ${allPositions.length} available positions (${(this.blockedHexes.size/allPositions.length*100).toFixed(1)}%) with seed ${this.boardSeed}`);
+    
+    // Log first few blocked positions for debugging synchronization
+    const blockedArray = Array.from(this.blockedHexes).slice(0, 5);
+    console.log(`First blocked hexes:`, blockedArray);
   }
   
   /**
@@ -172,9 +198,9 @@ export class Board {
     
     // Add subtle particle-like dots for ambiance
     for (let i = 0; i < 15; i++) {
-      const x = Math.random() * this.scene.scale.width;
-      const y = Math.random() * this.scene.scale.height;
-      const size = 1 + Math.random() * 2;
+      const x = this.rng.next() * this.scene.scale.width;
+      const y = this.rng.next() * this.scene.scale.height;
+      const size = 1 + this.rng.next() * 2;
       bgGraphics.fillStyle(0xffffff, 0.1);
       bgGraphics.fillCircle(x, y, size);
     }
