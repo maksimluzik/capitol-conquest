@@ -4,5 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.4"
   }
 }

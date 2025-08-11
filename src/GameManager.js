@@ -684,4 +684,31 @@ export class GameManager {
     if (this.players[1].score === this.players[2].score) return null;
     return this.players[1].score > this.players[2].score ? this.players[1] : this.players[2];
   }
+  // Networking helpers
+  getState() {
+    const pieces = [];
+    this.board.hexMap.forEach(hex => {
+      const piece = hex.data.values.piece;
+      if (piece) pieces.push({ q: hex.q, r: hex.r, player: piece.data.values.player });
+    });
+    return { pieces, currentPlayer: this.currentPlayer };
+  }
+
+  loadState(state) {
+    if (!state) return;
+    this.board.hexMap.forEach(hex => {
+      const piece = hex.data.values.piece;
+      if (piece) piece.destroy();
+      hex.data.values.piece = null;
+    });
+    state.pieces.forEach(p => this.addPiece(p.q, p.r, p.player));
+    this.currentPlayer = state.currentPlayer;
+    this.updateScores();
+    this.ui.updateTurn(this.players[this.currentPlayer].name);
+  }
+
+  applyNetworkMove(move) {
+    this.selectedPiece = this.board.getHex(move.fromQ, move.fromR)?.data.values.piece || null;
+    this.executeMove({ q: move.toQ, r: move.toR, type: move.type });
+  }
 }
