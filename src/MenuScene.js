@@ -113,7 +113,7 @@ export class MenuScene extends Phaser.Scene {
   _select(o){
     if (o.mode==='help'){ this.scene.start('HelpScene'); return; }
     if (o.mode==='stats'){ this.scene.start('GlobalStatsScene'); return; }
-    if (o.mode==='multiplayer'){ this.scene.start('MultiplayerScene'); return; }
+    if (o.mode==='multiplayer'){ this.scene.start('GameScene', { mode: 'online' }); return; }
     if (o.mode==='reset'){ resetScores(); this._renderScores(); return; }
     if (o.mode==='single'){ this.scene.start('ColorSelectScene'); return; }
     this.scene.start('GameScene',{ mode:o.mode });
