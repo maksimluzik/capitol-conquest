@@ -1,3 +1,6 @@
+// Apps Script project
+// https://script.google.com/home/projects/15uGMgOW9TfHtDCYRjDDxfiOwo5ISW0fHyKJ4mlkpdRBXw6zBRdNnqq01
+
 const SPREADSHEET_ID = '1RoWR5JqjiZSerZ6yXQ-h8MxnHFSkeiQRUK4dW8JmpQ4'; // Your actual sheet ID
 const SHEET_NAME = 'GameStats';
 
