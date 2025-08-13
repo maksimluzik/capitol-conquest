@@ -195,7 +195,9 @@ export class OnlineMultiplayerMode extends BaseMode {
       loop: true,
       callback: () => {
         dots = (dots + 1) % 4;
-        this.loadingDots.setText('.'.repeat(dots));
+        if (this.loadingDots) {
+          this.loadingDots.setText('.'.repeat(dots));
+        }
       }
     });
   }
@@ -203,6 +205,9 @@ export class OnlineMultiplayerMode extends BaseMode {
   stopLoadingAnimation() {
     if (this.loadingTimer) {
       this.loadingTimer.destroy();
+      this.loadingTimer = null;
+    }
+    if (this.loadingDots) {
       this.loadingDots.setText('');
     }
   }
