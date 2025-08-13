@@ -1,3 +1,6 @@
+// Apps Script project
+// https://script.google.com/home/projects/15uGMgOW9TfHtDCYRjDDxfiOwo5ISW0fHyKJ4mlkpdRBXw6zBRdNnqq01
+
 const SPREADSHEET_ID = '1RoWR5JqjiZSerZ6yXQ-h8MxnHFSkeiQRUK4dW8JmpQ4'; // Your actual sheet ID
 const SHEET_NAME = 'GameStats';
 
@@ -35,7 +38,6 @@ function doPost(e) {
       Logger.log('Missing or invalid required fields');
       return ContentService.createTextOutput(JSON.stringify({ error: 'Missing or invalid required fields' }))
         .setMimeType(ContentService.MimeType.JSON)
-        .setHeader('Access-Control-Allow-Origin', '*')
         .setResponseCode(400);
     }
 
@@ -80,14 +82,12 @@ function doPost(e) {
     Logger.log(`Successfully recorded game data: ${JSON.stringify(row)}`);
     
     return ContentService.createTextOutput(JSON.stringify({ success: true, timestamp: timestamp }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader('Access-Control-Allow-Origin', '*');
+      .setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
     Logger.log(`Error recording game data: ${err.message}`);
     return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
       .setMimeType(ContentService.MimeType.JSON)
-      .setHeader('Access-Control-Allow-Origin', '*')
       .setResponseCode(500);
   }
 }
