@@ -45,7 +45,7 @@ export class ChatUI {
     this.input.type = 'text';
     this.input.placeholder = 'Type message and press Enter...';
     Object.assign(this.input.style, {
-      width: '300px',
+      width: '250px',
       padding: '8px',
       fontSize: '14px',
       backgroundColor: 'rgba(0,0,0,0.9)',
@@ -55,18 +55,79 @@ export class ChatUI {
       outline: 'none'
     });
 
+    // Add a dismiss button for mobile users
+    this.dismissButton = document.createElement('button');
+    this.dismissButton.textContent = '✕';
+    this.dismissButton.title = 'Dismiss keyboard';
+    Object.assign(this.dismissButton.style, {
+      marginLeft: '5px',
+      padding: '8px 12px',
+      fontSize: '14px',
+      backgroundColor: 'rgba(255,0,0,0.8)',
+      color: 'white',
+      border: 'none',
+      borderRadius: '6px',
+      cursor: 'pointer'
+    });
+
     this.input.addEventListener('keydown', e => {
       if (e.key === 'Enter' && this.input.value.trim()) {
         const message = this.input.value.trim();
         console.log('Sending chat message:', message);
         this.sendMessage(message);
         this.input.value = '';
+        // Blur input after sending message to dismiss keyboard
+        this.input.blur();
+      } else if (e.key === 'Escape') {
+        // Allow ESC key to dismiss keyboard
+        this.input.blur();
       }
       // Prevent game controls from triggering while typing
       e.stopPropagation();
     });
 
+    // Add dismiss button click handler
+    this.dismissButton.addEventListener('click', () => {
+      this.input.blur();
+    });
+
+    // Add touch event to dismiss keyboard when tapping outside
+    this.inputContainer.addEventListener('touchstart', (e) => {
+      e.stopPropagation();
+    });
+
+    // Create a backdrop that dismisses keyboard when tapped
+    this.backdrop = document.createElement('div');
+    Object.assign(this.backdrop.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      right: '0',
+      bottom: '0',
+      zIndex: '999',
+      display: 'none'
+    });
+
+    this.backdrop.addEventListener('touchstart', () => {
+      this.input.blur();
+    });
+
+    this.backdrop.addEventListener('click', () => {
+      this.input.blur();
+    });
+
+    // Show/hide backdrop when input gains/loses focus
+    this.input.addEventListener('focus', () => {
+      this.backdrop.style.display = 'block';
+    });
+
+    this.input.addEventListener('blur', () => {
+      this.backdrop.style.display = 'none';
+    });
+
     this.inputContainer.appendChild(this.input);
+    this.inputContainer.appendChild(this.dismissButton);
+    document.body.appendChild(this.backdrop);
     document.body.appendChild(this.inputContainer);
   }
 
@@ -159,6 +220,10 @@ export class ChatUI {
   cleanup() {
     if (this.inputContainer && this.inputContainer.parentNode) {
       this.inputContainer.parentNode.removeChild(this.inputContainer);
+    }
+    
+    if (this.backdrop && this.backdrop.parentNode) {
+      this.backdrop.parentNode.removeChild(this.backdrop);
     }
     
     // Clean up individual message texts

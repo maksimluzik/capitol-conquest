@@ -15,6 +15,7 @@ A strategic hex-based board game where Republicans and Democrats battle for cont
 ### **Game Modes**
 - **Single Player vs AI**: Challenge the computer with multiple difficulty levels
 - **Two Player Local**: Play against a friend on the same device
+- **🌐 Online Multiplayer**: Play real-time matches against other players worldwide
 - **AI Difficulty Levels**:
   - 🟢 **Normal**: Equal starting pieces (3 vs 3)
   - 🟡 **Hard**: AI starts with 3x pieces (3 vs 9) 
@@ -55,6 +56,36 @@ const score =
 - **Strategic Positioning**: Favors central control and limits opponent mobility
 - **Adaptive Difficulty**: Different AI weights and starting advantages
 - **Unpredictable Play**: Jitter factor prevents repetitive patterns
+
+## 🌐 Online Multiplayer System
+
+### **Real-Time Multiplayer Features**
+- **Instant Matchmaking**: Quick pairing with available players worldwide
+- **Live Turn Synchronization**: Real-time move updates via WebSocket connection
+- **Party-Colored Chat**: 
+  - 🔴 **Republicans**: Red chat text
+  - 🔵 **Democrats**: Blue chat text
+- **Disconnect Handling**: Automatic win assignment when opponents leave
+- **Waiting Room**: Visual feedback during matchmaking with loading animation
+
+### **Multiplayer Architecture**
+- **Socket.IO Integration**: Reliable WebSocket connections with fallback support
+- **Room-Based Matching**: Automatic pairing of two players into game rooms
+- **Turn Validation**: Server-side validation of moves and game state
+- **Reconnection Logic**: Handles temporary disconnections gracefully
+- **Production Ready**: Configured for deployment with PM2 process management
+
+### **Chat System**
+- **Real-Time Messaging**: Instant communication between players
+- **Party Identification**: Messages colored by player's political party
+- **Game Integration**: Chat available throughout the entire match
+- **Clean UI**: Scrollable message history with timestamp display
+
+### **Global Statistics Integration**
+- **Online Game Tracking**: All multiplayer matches recorded to global statistics
+- **Win/Loss Recording**: Automatic recording of game outcomes including disconnections
+- **Performance Analytics**: Track multiplayer win rates and game duration
+- **Leaderboard Ready**: Foundation for competitive ranking systems
 
 ## 📊 Statistics & Analytics
 
@@ -107,6 +138,8 @@ const score =
 - **Google Apps Script**: Serverless backend for data recording
 - **Google Sheets API**: Real-time statistics reading
 - **Form-based POST**: Reliable data submission without preflight issues
+- **Socket.IO Server**: Real-time multiplayer backend with Express.js
+- **Production Deployment**: PM2 process management for reliable uptime
 
 ### **Mobile Support**
 - **Phaser Scale Manager**: Dynamic viewport handling
@@ -140,7 +173,21 @@ src/
 ├── GlobalStatsScene.js    # Statistics display scene
 ├── MenuScene.js           # Menu system (Main, Color Select, Help)
 ├── UIManager.js           # UI elements and responsive layout
-└── config.js              # Game configuration and constants
+├── config.js              # Game configuration and constants
+├── modes/                 # Game mode implementations
+│   ├── BaseMode.js        # Base class for all game modes
+│   ├── SinglePlayerMode.js # AI opponent mode
+│   ├── LocalMultiplayerMode.js # Local two-player mode
+│   └── OnlineMultiplayerMode.js # Online multiplayer mode
+└── online/                # Multiplayer components
+    ├── NetworkClient.js   # Socket.IO connection management
+    └── ChatUI.js          # Real-time chat interface
+
+server/
+├── server.js              # Express + Socket.IO multiplayer server
+├── roomManager.js         # Game room and matchmaking logic
+├── ecosystem.config.cjs   # PM2 production configuration
+└── package.json           # Server dependencies
 
 assets/
 ├── backgrounds/           # Background images
@@ -170,6 +217,8 @@ Control the most pieces when all playable hexes are filled.
 - **ESC**: Return to menu from any scene
 - **F**: Toggle fullscreen mode
 - **Music Toggle**: 🎵/🔇 icon in top-right corner
+- **Multiplayer Chat**: Type messages during online matches
+- **Leave Match**: Cancel button available during matchmaking and gameplay
 
 ## 🎵 Audio Credits
 

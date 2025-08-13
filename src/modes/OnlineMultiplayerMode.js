@@ -208,7 +208,7 @@ export class OnlineMultiplayerMode extends BaseMode {
       this.loadingTimer = null;
     }
     if (this.loadingDots) {
-      this.loadingDots.setText('');
+      this.loadingDots.setText(' ');
     }
   }
 
