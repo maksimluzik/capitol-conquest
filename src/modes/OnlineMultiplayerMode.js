@@ -287,11 +287,19 @@ export class OnlineMultiplayerMode extends BaseMode {
       .on('pointerover', () => returnButton.setStyle({ color: Config.COLORS.TEXT_WHITE }))
       .on('pointerout', () => returnButton.setStyle({ color: Config.COLORS.TEXT_YELLOW }))
       .on('pointerdown', () => {
+        // Clean up online state before returning to menu
+        if (this.scene.cleanupOnlineState) {
+          this.scene.cleanupOnlineState();
+        }
         this.scene.scene.start('MenuScene');
       });
     
     // Auto-return after 5 seconds
     this.scene.time.delayedCall(5000, () => {
+      // Clean up online state before returning to menu
+      if (this.scene.cleanupOnlineState) {
+        this.scene.cleanupOnlineState();
+      }
       this.scene.scene.start('MenuScene');
     });
   }

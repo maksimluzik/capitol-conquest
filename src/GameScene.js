@@ -120,6 +120,15 @@ export class GameScene extends Phaser.Scene {
       this.input.keyboard.on('keydown-F', () => this.gameManager.forfeitGame());
     }
 
+    // Add ESC key handler for all modes to return to menu
+    this.input.keyboard.on('keydown-ESC', () => {
+      // Clean up online state if in online mode before returning to menu
+      if (this.mode === 'online') {
+        this.cleanupOnlineState();
+      }
+      this.scene.start('MenuScene');
+    });
+
     // Add music toggle button
     this.addMusicToggle();
 
