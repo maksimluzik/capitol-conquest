@@ -195,7 +195,7 @@ export class OnlineMultiplayerMode extends BaseMode {
       loop: true,
       callback: () => {
         dots = (dots + 1) % 4;
-        if (this.loadingDots) {
+        if (this.loadingDots && !this.loadingDots.destroyed) {
           this.loadingDots.setText('.'.repeat(dots));
         }
       }
@@ -207,8 +207,8 @@ export class OnlineMultiplayerMode extends BaseMode {
       this.loadingTimer.destroy();
       this.loadingTimer = null;
     }
-    if (this.loadingDots) {
-      this.loadingDots.setText(' ');
+    if (this.loadingDots && !this.loadingDots.destroyed) {
+      this.loadingDots.setText('');
     }
   }
 
@@ -348,7 +348,12 @@ export class OnlineMultiplayerMode extends BaseMode {
   }
 
   cleanup() {
-    this.stopLoadingAnimation();
+    // Stop loading animation first, with error handling
+    try {
+      this.stopLoadingAnimation();
+    } catch (error) {
+      console.warn('OnlineMultiplayerMode: Error stopping loading animation:', error);
+    }
     
     // Remove all scene event listeners to prevent stale references
     if (this.scene && this.scene.events) {
@@ -368,13 +373,17 @@ export class OnlineMultiplayerMode extends BaseMode {
       this.chat.cleanup();
     }
     
-    // Clean up UI elements
-    if (this.waitingRoomContainer) {
-      this.waitingRoomContainer.destroy();
-      this.waitingRoomContainer = null;
+    // Clean up UI elements with error handling
+    try {
+      if (this.waitingRoomContainer && !this.waitingRoomContainer.destroyed) {
+        this.waitingRoomContainer.destroy();
+      }
+    } catch (error) {
+      console.warn('OnlineMultiplayerMode: Error destroying waiting room container:', error);
     }
     
     // Clear references to prevent memory leaks
+    this.waitingRoomContainer = null;
     this.statusText = null;
     this.playerStatusText = null;
     this.loadingDots = null;

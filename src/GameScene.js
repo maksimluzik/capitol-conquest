@@ -9,6 +9,8 @@ export class GameScene extends Phaser.Scene {
   constructor() { super('GameScene'); }
   init(data) { this.vsAI = data?.vsAI; }
   preload() {
+    // Load the background image
+    this.load.image('splash', Config.ASSETS.SPLASH_IMAGE);
     // Load sound effects
     this.load.audio('pieceMove', Config.ASSETS.PIECE_MOVE_SOUND);
     this.load.audio('pieceJump', Config.ASSETS.PIECE_JUMP_SOUND);
@@ -57,6 +59,9 @@ export class GameScene extends Phaser.Scene {
       }
       this.modeHandler = null;
     }
+    
+    // Add background image to all game modes
+    this.createBackground();
     
     // Get responsive layout settings
     const layout = Config.DEVICE.getMobileLayout(this);
@@ -120,6 +125,24 @@ export class GameScene extends Phaser.Scene {
 
     // Add resize listener for mobile viewport changes
     this.scale.on('resize', this.handleResize, this);
+  }
+  
+  createBackground() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    
+    // Add background image similar to MenuScene implementation
+    const bg = this.add.image(w/2, h/2, 'splash');
+    // Scale to fit screen while maintaining aspect ratio
+    const scaleX = w / bg.width;
+    const scaleY = h / bg.height;
+    const scale = Math.max(scaleX, scaleY);
+    bg.setScale(scale);
+    bg.setDepth(-1); // Ensure it's behind everything else
+    
+    // Add semi-transparent overlay for better gameplay visibility
+    this.add.rectangle(w/2, h/2, w, h, Config.COLORS.OVERLAY_DARK, 0.4)
+      .setDepth(0); // Above background but below game elements
   }
   
   handleResize(gameSize, baseSize, displaySize, resolution) {
